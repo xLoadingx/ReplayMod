@@ -12,6 +12,7 @@ using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Players;
 using MelonLoader;
 using ReplayMod.Core;
+using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using UnityEngine;
 using Random = UnityEngine.Random;

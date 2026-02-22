@@ -17,12 +17,15 @@ using Il2CppRUMBLE.Poses;
 using Il2CppRUMBLE.Utilities;
 using MelonLoader;
 using ReplayMod.Replay;
+using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using RumbleModdingAPI;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
+using EventType = ReplayMod.Replay.Serialization.EventType;
+using PlayerState = ReplayMod.Replay.Serialization.PlayerState;
 
 namespace ReplayMod.Core;
 

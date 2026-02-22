@@ -42,6 +42,7 @@ public class ReplayRecording
     public List<Marker> recordingMarkers = new();
     
     public List<Player> RecordedPlayers = new();
+    public Dictionary<string, int> PlayerSlots = new();
     public Dictionary<string, PlayerInfo> PlayerInfos = new();
     public List<StructureInfo> StructureInfos = new();
     
@@ -375,15 +376,17 @@ public class ReplayRecording
         };
 
         var orderedInfos = new List<PlayerInfo>();
-        
+
         foreach (var player in RecordedPlayers)
         {
-            if (player == null) continue;
-
+            if (player == null)
+            {
+                orderedInfos.Add(null);
+                continue;
+            }
+            
             var id = player.Data.GeneralData.PlayFabMasterId;
-
-            if (PlayerInfos.TryGetValue(id, out var info))
-                orderedInfos.Add(info);
+            orderedInfos.Add(PlayerInfos.GetValueOrDefault(id));
         }
 
         replayInfo.Header.Players = orderedInfos.ToArray();
@@ -485,8 +488,9 @@ public class ReplayRecording
     public void SetupRecordingData()
     {
         RecordedPlayers.Clear();
-        Structures.Clear();
+        PlayerSlots.Clear();
         PlayerInfos.Clear();
+        Structures.Clear();
         StructureInfos.Clear();
         Pedestals.Clear();
 
@@ -505,6 +509,30 @@ public class ReplayRecording
         }
 
         Pedestals.AddRange(Utilities.EnumerateMatchPedestals());
+    }
+
+    public int RegisterPlayer(Player player)
+    {
+        var id = player.Data.GeneralData.PlayFabMasterId;
+
+        int index;
+        if (PlayerSlots.TryGetValue(id, out var slot))
+        {
+            RecordedPlayers[slot] = player;
+            index = slot;
+        }
+        else
+        {
+            int newSlot = RecordedPlayers.Count;
+            PlayerSlots[id] = newSlot;
+            RecordedPlayers.Add(player);
+
+            index = newSlot;
+        }
+        
+        MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player));
+
+        return index;
     }
 
     public Marker AddMarker(string name, Color color)

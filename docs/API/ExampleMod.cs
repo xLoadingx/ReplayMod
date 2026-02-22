@@ -3,6 +3,7 @@ using System.IO;
 using MelonLoader;
 using ReplayMod;
 using ReplayMod.Replay;
+using ReplayMod.Replay.Serialization;
 using RumbleModdingAPI;
 using UnityEngine;
 

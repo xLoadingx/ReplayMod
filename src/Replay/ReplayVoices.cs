@@ -6,6 +6,7 @@ using Il2CppPhoton.Voice.PUN;
 using Il2CppPhoton.Voice.Unity;
 using Il2CppRUMBLE.Managers;
 using MelonLoader.Utils;
+using ReplayMod.Replay.Serialization;
 using UnityEngine;
 
 namespace ReplayMod.Replay;

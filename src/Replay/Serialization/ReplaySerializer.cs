@@ -1,26 +1,19 @@
 using System;
-using System.Collections;
-using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
+using Il2CppPhoton.Pun;
+using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Scaling;
 using Newtonsoft.Json;
 using UnityEngine;
-using System.Threading.Tasks;
-using Il2CppPhoton.Pun;
-using Il2CppRUMBLE.Players;
-using MelonLoader;
-using ReplayMod.Replay;
 using BinaryReader = System.IO.BinaryReader;
 using BinaryWriter = System.IO.BinaryWriter;
-using CompressionLevel = System.IO.Compression.CompressionLevel;
 using Main = ReplayMod.Core.Main;
 using MemoryStream = System.IO.MemoryStream;
 
-namespace ReplayMod;
+namespace ReplayMod.Replay.Serialization;
 
 public class ReplaySerializer
 {
@@ -54,8 +47,7 @@ public class ReplaySerializer
 
         public string Guid;
     }
-
-
+    
     // ----- Helpers -----
 
     static bool PosChanged(Vector3 a, Vector3 b)
@@ -333,10 +325,7 @@ public class ReplaySerializer
         return any;
     }
     
-    
     // ----- Serialization -----
-    
-    
     
     public static byte[] SerializeReplayFile(ReplayInfo replay)
     {
@@ -637,7 +626,7 @@ public class ReplaySerializer
                 }
             }
 
-            frame.Events = events?.ToArray();
+            frame.Events = events.ToArray();
             
             br.BaseStream.Position = frameEnd;
 
@@ -646,7 +635,6 @@ public class ReplaySerializer
         
         return frames;
     }
-    
     
     // ----- Chunk Reading -----
     

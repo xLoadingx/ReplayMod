@@ -8,6 +8,7 @@ using MelonLoader;
 using MelonLoader.Utils;
 using Newtonsoft.Json;
 using ReplayMod.Replay.Files;
+using ReplayMod.Replay.Serialization;
 using RumbleModdingAPI;
 using UnityEngine;
 using UnityEngine.VFX;

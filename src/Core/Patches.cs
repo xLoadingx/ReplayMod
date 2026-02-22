@@ -14,10 +14,12 @@ using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Pools;
 using MelonLoader;
 using ReplayMod.Replay;
+using ReplayMod.Replay.Serialization;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
+using EventType = ReplayMod.Replay.Serialization.EventType;
 using SceneManager = Il2CppRUMBLE.Managers.SceneManager;
 using Stack = Il2CppRUMBLE.MoveSystem.Stack;
 
@@ -202,20 +204,6 @@ public class Patches
             }
         }
     }
-
-    [HarmonyPatch(typeof(PlayerHealth), nameof(PlayerHealth.SpawnHitEffects))]
-    public class Patch_PlayerHealth_SpawnHitEffects
-    {
-        static void Postfix(PlayerHealth __instance, short damage, Vector3 position)
-        {
-            Main.Recording.Events.Add(new EventChunk
-            {
-                damage = damage,
-                position = position,
-                playerIndex = GetPlayerIndex(__instance.ParentController.assignedPlayer)
-            });
-        }
-    }
     
     // ----- Late-Player joining/leaving -----
     
@@ -229,10 +217,8 @@ public class Patches
 
             var player = __instance.ParentController.assignedPlayer;
             if (player == null) return;
-            
-            Main.Recording.RecordedPlayers.Add(player);
 
-            MelonCoroutines.Start(VisualDataDelay(player));
+            Main.Recording.RegisterPlayer(player);
         }
 
         public static IEnumerator VisualDataDelay(Player player)
@@ -256,11 +242,11 @@ public class Patches
                 return;
 
             string id = __instance?.assignedPlayer?.Data?.GeneralData?.PlayFabMasterId;
-            
-            if (string.IsNullOrEmpty(id))
-                return;
 
-            Main.Recording.PlayerInfos[id] = null;
+            if (Main.Recording.PlayerSlots.TryGetValue(id, out var slot))
+            {
+                Main.Recording.RecordedPlayers[slot] = null;
+            }
         }
     }
     

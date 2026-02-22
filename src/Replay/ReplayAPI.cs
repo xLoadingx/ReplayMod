@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using ReplayMod.Core;
 using ReplayMod.Replay.Files;
+using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using RumbleModUIPlus;
 using UnityEngine;

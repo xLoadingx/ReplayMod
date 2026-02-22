@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Il2CppRUMBLE.Audio;
 using Il2CppRUMBLE.Managers;
 using Il2CppRUMBLE.Pools;
+using ReplayMod.Replay.Serialization;
 using UnityEngine;
 
 namespace ReplayMod.Replay;
