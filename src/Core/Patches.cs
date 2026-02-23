@@ -125,6 +125,9 @@ public class Patches
                     
                     if (type is FXOneShotType.Ricochet) 
                         evt.rotation = rotation; Main.Recording.Events.Add(evt);
+
+                    if (type is FXOneShotType.Hitmarker)
+                        evt.damage = (int)vfx.GetFloat("Damage");
                 }
             }
 

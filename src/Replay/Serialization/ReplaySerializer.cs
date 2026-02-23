@@ -1201,7 +1201,9 @@ public enum FXOneShotType : byte
     FistbumpGoin,
     
     Jump,
-    Dash
+    Dash,
+    
+    Hitmarker
 }
 
 // ------------------------

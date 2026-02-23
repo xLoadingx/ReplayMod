@@ -53,6 +53,7 @@ public static class ReplayCache
         { "RockCamDespawn_VFX", FXOneShotType.RockCamDespawn },
         { "PlayerBoxInteractionVFX",FXOneShotType.Fistbump },
         { "FistbumpCoin", FXOneShotType.FistbumpGoin },
+        { "Hitmarker", FXOneShotType.Hitmarker }
     };
     
     public static readonly Dictionary<FXOneShotType, string> FXToVFXName = new()

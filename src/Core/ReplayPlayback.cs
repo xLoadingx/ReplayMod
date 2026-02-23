@@ -758,32 +758,7 @@ public class ReplayPlayback
             ref var state = ref playbackPlayerStates[i];
 
             if (state.health != pb.Health)
-            {
                 playbackPlayer.Controller.GetSubsystem<PlayerHealth>().SetHealth(pb.Health, (short)state.health);
-
-                bool tookDamage =
-                    (playbackSpeed >= 0f && pb.Health < pa.Health) ||
-                    (playbackSpeed < 0f && pb.Health > pa.Health);
-                
-                if (tookDamage && frameIndex != 0 && pb.Health != 0 && currentReplay.Header.Scene != "Gym")
-                {
-                    var pool = PoolManager.instance.GetPool("PlayerHitmarker");
-                    var effect = GameObject.Instantiate(pool.poolItem.gameObject, VFXParent.transform);
-
-                    effect.transform.position = playbackPlayer.Head.transform.position - new Vector3(0, 0.5f * ReplayRoot.transform.localScale.y, 0);
-                    effect.transform.localRotation = Quaternion.identity;
-                    effect.transform.localScale = Vector3.Scale(effect.transform.localScale, ReplayRoot.transform.localScale);
-                    effect.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
-                    effect.AddComponent<ReplayTag>();
-                    effect.gameObject.AddComponent<DeleteAfterSeconds>();
-
-                    var hitmarker = effect.GetComponent<PlayerHitmarker>();
-                    hitmarker.SetDamage(Abs(pa.Health - pb.Health));
-                    hitmarker.gameObject.SetActive(true);
-                    hitmarker.Play();
-                    hitmarker.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
-                }
-            }
             
             state.health = playbackPlayer.Controller.assignedPlayer.Data.HealthPoints;
             
@@ -1006,7 +981,7 @@ public class ReplayPlayback
             {
                 case EventType.OneShotFX:
                 {
-                    var fx = SpawnFX(evt.fxType, evt.position, evt.rotation);
+                    var fx = SpawnFX(evt);
 
                     if (fx != null)
                     {
@@ -1040,33 +1015,36 @@ public class ReplayPlayback
         ReplayAPI.OnPlaybackFrameInternal(a);
     }
     
-    public GameObject SpawnFX(FXOneShotType fxType, Vector3 position, Quaternion rotation = default)
+    public GameObject SpawnFX(EventChunk fx)
     {
         if (Recording.isRecording || Recording.isBuffering)
         {
             var evtChunk = new EventChunk
             {
                 type = EventType.OneShotFX,
-                fxType = fxType,
-                position = position
+                fxType = fx.fxType,
+                position = fx.position
             };
 
-            if (fxType == FXOneShotType.Ricochet)
-                evtChunk.rotation = rotation;
+            if (fx.fxType == FXOneShotType.Ricochet)
+                evtChunk.rotation = fx.rotation;
+
+            if (fx.fxType == FXOneShotType.Hitmarker)
+                evtChunk.damage = fx.damage;
 
             Recording.Events.Add(evtChunk);
         }
 
         GameObject vfxObject = null;
 
-        if (ReplayCache.FXToVFXName.TryGetValue(fxType, out var poolName))
+        if (ReplayCache.FXToVFXName.TryGetValue(fx.fxType, out var poolName))
         {
             var effect = GameObject.Instantiate(PoolManager.instance.GetPool(poolName).poolItem);
             if (effect != null)
             {
                 effect.transform.SetParent(VFXParent.transform);
 
-                effect.transform.SetLocalPositionAndRotation(position, rotation);
+                effect.transform.SetLocalPositionAndRotation(fx.position, fx.rotation);
                 effect.transform.localScale = Vector3.Scale(effect.transform.localScale, ReplayRoot.transform.localScale);
                 
                 var vfx = effect.GetComponent<VisualEffect>();
@@ -1082,9 +1060,28 @@ public class ReplayPlayback
             }
         }
 
-        if (ReplayCache.FXToSFXName.TryGetValue(fxType, out string audioName) && ReplayCache.SFX.TryGetValue(audioName, out var audioCall))
+        if (fx.fxType == FXOneShotType.Hitmarker)
         {
-            AudioManager.instance.Play(audioCall, position);
+            var pool = PoolManager.instance.GetPool("PlayerHitmarker");
+            var effect = GameObject.Instantiate(pool.poolItem.gameObject, VFXParent.transform);
+
+            effect.transform.localPosition = fx.position;
+            effect.transform.localRotation = Quaternion.identity;
+            effect.transform.localScale = Vector3.Scale(effect.transform.localScale, ReplayRoot.transform.localScale);
+            effect.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
+            effect.AddComponent<ReplayTag>();
+            effect.gameObject.AddComponent<DeleteAfterSeconds>();
+
+            var hitmarker = effect.GetComponent<PlayerHitmarker>();
+            hitmarker.SetDamage(fx.damage);
+            hitmarker.gameObject.SetActive(true);
+            hitmarker.Play();
+            hitmarker.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
+        }
+
+        if (ReplayCache.FXToSFXName.TryGetValue(fx.fxType, out string audioName) && ReplayCache.SFX.TryGetValue(audioName, out var audioCall))
+        {
+            AudioManager.instance.Play(audioCall, fx.position);
         }
 
         return vfxObject;
