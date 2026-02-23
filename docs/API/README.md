@@ -1,4 +1,51 @@
-# Replay Extensions
+# Replay Mod
+
+## Core Systems
+The core systems that ReplayMod uses to record, playback, handle UI and files  
+have some public interfaces that external mods can use to integrate into the ReplayMod.
+
+The active ReplayMod instance is what controls the UI using its ReplayRecording and  
+ReplayPlayback instances.
+
+### ReplayRecording
+`ReplayRecording` represents an active recording session. It captures live scene state  
+over time and stores it as frame data. A recording can be started stopped, buffered,  
+and saved to disk.
+
+The class maintains its own internal state and must be advanced each frame  
+via `HandleRecording()` if it is created manually.
+
+---
+
+### ReplayPlayback
+`ReplayPlayback` represents a replay playback context. It loads recorded frame data  
+and reconstructs state over time using its own time cursor.
+
+Playback is advanced through `HandlePlayback()`. It contains independent controls  
+for playback.
+
+Multiple playback instances can exist at the same time as long as each is advanced   
+independently.
+
+---
+
+### ReplayFiles
+`ReplayFiles` controls replay storage and browsing. It exposes the active  
+`ReplayExplorer`, which represents the current replay directory and selection state.  
+
+It is responsible for selecting and loading available replays and updating the UI  
+accordingly.
+
+---
+
+### ReplayExplorer
+`Replay Explorer` represents the current replay directory and selection state.  
+It exposes the list of discovered replay paths in the active folder and provides  
+access to the currently selected replay and its metadata.
+
+---
+
+## Extensions
 
 Replay Extensions allow external mods to inject custom data into replay files.
 
@@ -242,6 +289,7 @@ Each extension operates only within its own folder.
 - Keep field payloads small.
 - Clear cached state when `ReplayEnded` fires.
 - Treat serialized formats as permanent once released.
+- Run Ticked classes (ReplayPlayback and ReplayRecording) in OnLateUpdate
 
 ---
 

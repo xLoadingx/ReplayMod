@@ -21,6 +21,13 @@ using Player = Il2CppRUMBLE.Players.Player;
 
 namespace ReplayMod.Core;
 
+/// <summary>
+/// Represents an active replay recording session.
+///
+/// Collects runtime state of the scene over time and builds frame data for later
+/// serialization and playback. Supports both full recording and
+/// rolling replay buffering.
+/// </summary>
 public class ReplayRecording
 {
     public bool isRecording = false;

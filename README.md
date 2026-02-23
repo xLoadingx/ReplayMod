@@ -7,6 +7,9 @@ It can be used for:
 - Debugging gameplay behavior
 - External analysis or tooling using the provided replay format
 
+[Multiplayer Maps In Single Player](https://thunderstore.io/c/rumble/p/UlvakSkillz/MultiplayerMapsInSinglePlayer/) is highly recommended for this mod in order to  
+maneuver through the replays correctly. 
+
 ---
 
 ## How to use
@@ -94,10 +97,12 @@ Once a replay is selected, a second panel appears with tools for managing the fi
 
 ---
 
-## Replay Format
+## Developers
 The replay format is documented [here](docs/ReplayFormat)
+The documentation for the API is found [here](docs/API/README.md)
 
+### Tools:
 - [Binary format spec](docs/ReplayFormat/README.md): `docs/ReplayFormat/README.md`
 - [ImHex pattern](docs/ReplayFormat/ReplayFile.hexpat): `docs/ReplayFormat/ReplayFile.hexpat`
-
-External tools can read replays using the documented format.
+- [Python Reader](BlenderPlugin/replay_mod_importer.py): `BlenderPlguin/replay_mod_importer.py`
+- [Example Extension Mod](docs/API/ExampleMod.cs): `docs/API/ExampleMod.cs`

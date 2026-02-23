@@ -29,6 +29,13 @@ using PlayerState = ReplayMod.Replay.Serialization.PlayerState;
 
 namespace ReplayMod.Core;
 
+/// <summary>
+/// Represents a single replay playback context.
+///
+/// Loads replay data and reconstructs runtime state, and advances playback
+/// through time via interpolation (see <see cref="HandlePlayback"/> in LateUpdate).
+/// Instances are self-contained and may be run concurrently, if they are ticked independently.
+/// </summary>
 public class ReplayPlayback
 {
     public ReplayRecording Recording;

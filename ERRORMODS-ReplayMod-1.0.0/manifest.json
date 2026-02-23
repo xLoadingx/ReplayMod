@@ -1,7 +1,7 @@
 {
-  "name": "RumbleAnimator",
+  "name": "ReplayMod",
   "version_number": "1.0.0",
-  "website_url": "https://github.com/xLoadingx/RumbleAnimator",
-  "description": "Records and plays back RUMBLE scenes in 3d.",
+  "website_url": "https://github.com/xLoadingx/ReplayMod",
+  "description": "Full replay engine for RUMBLE with recording, buffering, playback controls, and mod extension support.",
   "dependencies": [ "LavaGang-MelonLoader-0.7.1", "UlvakSkillz-RumbleModdingAPI-4.1.4", "ninjaguardian-RumbleModUIPlus-2.0.0", "Baumritter-RumbleModUI-2.1.2" ]
 }
