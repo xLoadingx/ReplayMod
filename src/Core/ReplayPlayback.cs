@@ -33,9 +33,9 @@ public class ReplayPlayback
 {
     public ReplayRecording Recording;
 
-    public ReplayPlayback(ReplayRecording recording)
+    public ReplayPlayback(ReplayRecording recording = null)
     {
-        Recording = recording;
+        Recording = recording ?? Main.Recording;
     }
     
     // Replay Control
@@ -452,6 +452,7 @@ public class ReplayPlayback
             yield return null;
 
         GameObject body = newPlayer.Controller.gameObject;
+        body.transform.position = initialPosition;
         
         body.name = $"Player_{pInfo.MasterId}";
         
@@ -950,23 +951,27 @@ public class ReplayPlayback
 
         // ------ Pedestals ------
 
-        for (int i = 0; i < currentReplay.Header.PedestalCount; i++)
+        if (replayPedestals.Count >= currentReplay.Header.PedestalCount)
         {
-            var playbackPedestal = replayPedestals[i];
-            var pa = a.Pedestals[i];
-            var pb = b.Pedestals[i];
+            for (int i = 0; i < currentReplay.Header.PedestalCount; i++)
+            {
+                var playbackPedestal = replayPedestals[i];
+                var pa = a.Pedestals[i];
+                var pb = b.Pedestals[i];
 
-            ref var state = ref playbackPedestalStates[i];
+                ref var state = ref playbackPedestalStates[i];
 
-            if (state.active != pb.active)
-                playbackPedestal.SetActive(pb.active);
+                if (state.active != pb.active)
+                    playbackPedestal.SetActive(pb.active);
 
-            state.active = playbackPedestal.activeSelf;
+                state.active = playbackPedestal.activeSelf;
 
-            Vector3 pos = Vector3.Lerp(pa.position, pb.position, t);
-            playbackPedestal.transform.localPosition = pos;
+                Vector3 pos = Vector3.Lerp(pa.position, pb.position, t);
+                playbackPedestal.transform.localPosition = pos;
+            }
+
         }
-
+        
         // ------ Events 
 
         var events = a.Events;
