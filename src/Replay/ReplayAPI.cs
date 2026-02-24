@@ -7,6 +7,7 @@ using ReplayMod.Core;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
+using RumbleModUI;
 using RumbleModUIPlus;
 using UnityEngine;
 using BuildInfo = ReplayMod.Core.BuildInfo;
@@ -17,7 +18,7 @@ namespace ReplayMod.Replay;
 
 public static class ReplayAPI
 {
-    private static readonly List<Extension> _extensions = new();
+    private static readonly List<ReplayExtension> _extensions = new();
     private static readonly List<ModSettingFolder> _extensionFolders = new(); 
     
     /// <summary>
@@ -49,7 +50,7 @@ public static class ReplayAPI
     /// <summary>
     /// Invoked for every frame during playback.
     /// </summary>
-    public static event Action<Frame> OnPlaybackFrame;
+    public static event Action<Frame, Frame> OnPlaybackFrame;
     
     /// <summary>
     /// Invoked for every frame while recording or buffering.
@@ -79,7 +80,7 @@ public static class ReplayAPI
     internal static void ReplayTimeChangedInternal(float time) => onReplayTimeChanged?.Invoke(time);
     internal static void ReplayPauseChangedInternal(bool paused) => onReplayPauseChanged?.Invoke(paused);
 
-    internal static void OnPlaybackFrameInternal(Frame frame) => OnPlaybackFrame?.Invoke(frame);
+    internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => OnPlaybackFrame?.Invoke(frame, nextFrame);
     internal static void OnRecordFrameInternal(Frame frame, bool isBuffer) => OnRecordFrame?.Invoke(frame, isBuffer);
     
     internal static void ReplaySavedInternal(ReplayInfo info, bool isBuffer, string path) => onReplaySaved?.Invoke(info, isBuffer, path);
@@ -231,13 +232,13 @@ public static class ReplayAPI
     private static readonly Dictionary<int, Action<BinaryReader, Frame>> _frameReaders = new();
     private static readonly Dictionary<int, Action<FrameExtensionWriter, Frame>> _frameWriters = new();
     
-    internal static IEnumerable<Extension> Extensions => _extensions;
+    internal static IEnumerable<ReplayExtension> Extensions => _extensions;
 
     /// <summary>
     /// Computes a stable FNV-1a hash for a string.
     /// Used to generate consistent frame extension identifiers for custom chunks.
     /// </summary>
-    private static int ComputeStableId(string input)
+    public static int ComputeStableId(string input)
     {
         unchecked
         {
@@ -255,71 +256,26 @@ public static class ReplayAPI
     }
     
     /// <summary>
-    /// Attempts to retrieve a registered frame reader for the specified extension id.
-    /// </summary>
-    /// <param name="id">The stable frame extension id.</param>
-    /// <param name="reader">The frame reader delegate if found</param>
-    /// <returns>True if a reader was found.</returns>
-    internal static bool TryGetFrameReader(int id, out Action<BinaryReader, Frame, int> reader)
-    {
-        var ext = _extensions.FirstOrDefault(e => e.FrameExtensionId == id);
-
-        if (ext != null && ext.OnReadFrame != null)
-        {
-            reader = ext.OnReadFrame;
-            return true;
-        }
-
-        reader = null;
-        return false;
-    }
-    
-    /// <summary>
     /// Registers a replay extension.
     /// Allows injecting custom archive data and per-frame data.
     /// The provided id must be unique.
     /// </summary>
-    /// <param name="id">Unique identifier for the extension. This must be kept the same for the extension to be identified.</param>
-    /// <param name="onBuild">Called when building the replay archive.</param>
-    /// <param name="onRead">Called when reading the replay archive.</param>
-    /// <param name="onWriteFrame">Called when writing each frame</param>
-    /// <param name="onReadFrame">Called when reading each frame.</param>
-    /// <returns>The replay extension class.</returns>
-    public static ReplayExtension RegisterExtension(
-        string id, 
-        Action<ArchiveBuilder> onBuild = null, 
-        Action<ArchiveReader> onRead = null,
-        Action<FrameExtensionWriter, Frame> onWriteFrame = null,
-        Action<BinaryReader, Frame, int> onReadFrame = null)
+    /// <param name="extension">The replay extension class</param>
+    /// <returns>The replay extension class</returns>
+    public static ReplayExtension RegisterExtension(ReplayExtension extension)
     {
-        if (_extensions.Any(e => e.Id == id))
+        if (_extensions.Any(e => e.Id == extension.Id))
         {
-            Main.instance.LoggerInstance.Error($"Replay Mod: Extension '{id}' already registered");
+            Main.instance.LoggerInstance.Error($"Extension with an ID `{extension.Id}` already registered");
             return null;
         }
         
-        _extensions.Add(new Extension(
-            id, 
-            onBuild, 
-            onRead,
-            ComputeStableId(id),
-            onWriteFrame, 
-            onReadFrame)
-        );
-
-        Main.instance.extensionsFolder ??= Main.replayMod.AddFolder("Extensions", "Settings for all registered extensions");
-
-        var extensionFolder = Main.replayMod.AddFolder(id, $"Settings for the extension '{id}'");
-        Main.instance.extensionsFolder.AddSetting(extensionFolder);
-
-        var extensionToggle = Main.replayMod.AddToList("Toggle", true, 0, "Toggles the extension on/off", new Tags());
-        extensionFolder.AddSetting(extensionToggle);
-
-        Main.replayMod.GetFromFile();
+        _extensions.Add(extension);
         
-        Main.instance.LoggerInstance.Msg($"Replay Mod: Extension '{id}' created");
+        Main.replayMod.GetFromFile();
+        Main.instance.LoggerInstance.Msg($"Extension '{extension.Id}' created");
 
-        return new ReplayExtension(id);
+        return extension;
     }
 
     /// <summary>
@@ -331,7 +287,7 @@ public static class ReplayAPI
         foreach (var ext in Extensions)
         {
             var builder = new ArchiveBuilder(zip, ext.Id);
-            ext.OnBuild?.Invoke(builder);
+            ext.OnBuild(builder);
         }
     }
     
@@ -344,65 +300,8 @@ public static class ReplayAPI
         foreach (var ext in Extensions)
         {
             var reader = new ArchiveReader(zip, ext.Id);
-            ext.OnRead?.Invoke(reader);
+            ext.OnRead(reader);
         }
-    }
-
-    /// <summary>
-    /// Represents a registered replay extension definition.
-    /// Stores callbacks and metadata used during replay serialization.
-    /// </summary>
-    internal sealed class Extension
-    {
-        public string Id { get; }
-        
-        public Action<ArchiveBuilder> OnBuild { get; }
-        public Action<ArchiveReader> OnRead { get; }
-
-        public int FrameExtensionId { get; }
-        
-        public Action<FrameExtensionWriter, Frame> OnWriteFrame { get; }
-        public Action<BinaryReader, Frame, int> OnReadFrame { get; }
-
-        public Extension(
-            string id, 
-            Action<ArchiveBuilder> onBuild, 
-            Action<ArchiveReader> onRead,
-            int frameExtensionId,
-            Action<FrameExtensionWriter, Frame> onWriteFrame,
-            Action<BinaryReader, Frame, int> onReadFrame)
-        {
-            Id = id;
-            OnBuild = onBuild;
-            OnRead = onRead;
-            FrameExtensionId = frameExtensionId;
-            OnWriteFrame = onWriteFrame;
-            OnReadFrame = onReadFrame;
-        }
-    }
-
-    /// <summary>
-    /// Represents a registered replay extension.
-    /// </summary>
-    public sealed class ReplayExtension
-    {
-        private readonly string _modId;
-
-        internal ReplayExtension(string modId)
-        {
-            _modId = modId;
-        }
-
-        /// <summary>
-        /// Adds a marker to the current recording.
-        /// Returns false if recording/buffering is not active.
-        /// </summary>
-        /// <param name="name">The name of the marker. Can be anything.</param>
-        /// <param name="time">The timestamp at which the marker is added. Use Time.time to add a marker at the current frame.</param>
-        /// <param name="color">The color in which the marker appears on the timeline.</param>
-        /// <returns>The added marker</returns>
-        public Marker AddMarker(string name, float time, Color color) =>
-            Main.Recording.AddMarker($"{_modId}.{name}", color, time);
     }
 
     /// <summary>
@@ -534,4 +433,28 @@ public static class ReplayAPI
         /// </summary>
         public bool FileExists(string relativePath) => _zip.GetEntry(GetFullPath(relativePath)) != null;
     }
+}
+
+/// <summary>
+/// Represents a registered replay extension definition.
+/// Stores callbacks and metadata used during replay serialization.
+/// </summary>
+public abstract class ReplayExtension
+{
+    public abstract string Id { get; }
+        
+    public ModSettingFolder Settings { get; internal set; }
+    public ModSetting<bool> Enabled { get; internal set; }
+    public bool IsEnabled => (bool)Enabled.SavedValue;
+
+    public virtual void OnBuild(ReplayAPI.ArchiveBuilder builder) { }
+    public virtual void OnRead(ReplayAPI.ArchiveReader reader) { }
+
+    public int FrameExtensionId => ReplayAPI.ComputeStableId(Id);
+
+    public virtual void OnRecordFrame(Frame frame, bool isBuffer) { }
+    public virtual void OnWriteFrame(ReplayAPI.FrameExtensionWriter writer, Frame frame) { }
+    
+    public virtual void OnPlaybackFrame(Frame frame, Frame nextFrame) { }
+    public virtual void OnReadFrame(BinaryReader reader, Frame frame, int index) { }
 }

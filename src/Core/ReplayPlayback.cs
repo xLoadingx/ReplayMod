@@ -1024,7 +1024,15 @@ public class ReplayPlayback
             }
         }
 
-        ReplayAPI.OnPlaybackFrameInternal(a);
+        ReplayAPI.OnPlaybackFrameInternal(a, b);
+
+        foreach (var ext in ReplayAPI.Extensions)
+        {
+            if (!ext.IsEnabled)
+                continue;
+            
+            ext.OnPlaybackFrame(a, b);
+        }
     }
     
     public GameObject SpawnFX(EventChunk fx)

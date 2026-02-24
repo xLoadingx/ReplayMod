@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -448,7 +449,7 @@ public class ReplaySerializer
 
             foreach (var ext in ReplayAPI.Extensions)
             {
-                if (ext.OnWriteFrame == null)
+                if (!(bool)ext.Enabled.SavedValue)
                     continue;
 
                 var writer = new ReplayAPI.FrameExtensionWriter(
@@ -608,10 +609,9 @@ public class ReplaySerializer
 
                         long end = br.BaseStream.Position + len;
 
-                        if (ReplayAPI.TryGetFrameReader(extensionId, out var reader))
-                        {
-                            reader(br, frame, subIndex);
-                        }
+                        var ext = ReplayAPI.Extensions.FirstOrDefault(ex => ex.FrameExtensionId == extensionId);
+                        if (ext != null && (bool)ext.Enabled.SavedValue)
+                            ext.OnReadFrame(br, frame, subIndex);
 
                         br.BaseStream.Position = end;
                         break;
@@ -821,6 +821,8 @@ public class Frame
     public PedestalState[] Pedestals;
     public EventChunk[] Events;
 
+    private Dictionary<int, object> ExtensionData = new();
+
     public Frame Clone()
     {
         var frame = new Frame();
@@ -831,6 +833,23 @@ public class Frame
         frame.Events = Utilities.NewArray(Events.Length, Events);
 
         return frame;
+    }
+
+    public void SetExtensionData(ReplayExtension extension, object data)
+    {
+        ExtensionData[extension.FrameExtensionId] = data;
+    }
+
+    public bool TryGetExtensionData<T>(ReplayExtension extension, out T value)
+    {
+        if (ExtensionData.TryGetValue(extension.FrameExtensionId, out var obj) && obj is T typed)
+        {
+            value = typed;
+            return true;
+        }
+
+        value = default;
+        return false;
     }
 }
 

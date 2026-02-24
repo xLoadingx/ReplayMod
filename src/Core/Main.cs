@@ -450,6 +450,24 @@ public class Main : MelonMod
         controlsFolder.AddSetting(LeftHandControls)
             .AddSetting(RightHandControls)
             .AddSetting(EnableHaptics);
+
+        if (ReplayAPI.Extensions.Any())
+        {
+            extensionsFolder = replayMod.AddFolder("Extensions", "Settings for all registered extensions");
+
+            foreach (var ext in ReplayAPI.Extensions)
+            {
+                var extensionFolder = replayMod.AddFolder(ext.Id, $"Settings for the extension '{ext.Id}'");
+                extensionsFolder.AddSetting(extensionFolder);
+
+                var extensionToggle = replayMod.AddToList($"Toggle {ext.Id}", true, 0, "Toggles the extension on/off", new Tags());
+                extensionFolder.AddSetting(extensionToggle);
+
+                ext.Settings = extensionFolder;
+                ext.Enabled = extensionToggle;
+            }
+        }
+        
         
         var otherFolder = replayMod.AddFolder("Other", "Miscellaneous settings.");
 

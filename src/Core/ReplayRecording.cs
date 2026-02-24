@@ -78,6 +78,12 @@ public class ReplayRecording
             if (isRecording)
             {
                 var cloned = frame.Clone();
+                
+                foreach (var ext in ReplayAPI.Extensions) {
+                    if (!ext.IsEnabled) continue;
+                    ext.OnRecordFrame(cloned, false);
+                }
+                
                 ReplayAPI.OnRecordFrameInternal(cloned, false);
                 Frames.Add(cloned);
             }
@@ -85,6 +91,12 @@ public class ReplayRecording
             if (isBuffering)
             {
                 var cloned = frame.Clone();
+                
+                foreach (var ext in ReplayAPI.Extensions) {
+                    if (!ext.IsEnabled) continue;
+                    ext.OnRecordFrame(cloned, true);
+                }
+                
                 ReplayAPI.OnRecordFrameInternal(cloned, true);
                 replayBuffer.Enqueue(cloned);
 
