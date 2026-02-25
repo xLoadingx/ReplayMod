@@ -225,6 +225,8 @@ public class ReplaySettings : MonoBehaviour
 
         for (int i = 0; i < players.Length; i++)
         {
+            if (header.Players[i] == null) continue;
+            
             allEntries.Add((
                 new UserData(
                     PlatformManager.Platform.Unknown,

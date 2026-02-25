@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MelonLoader;
 using Newtonsoft.Json;
 using ReplayMod.Replay.Files;
+using Main = ReplayMod.Core.Main;
 
 namespace ReplayMod.Replay.Serialization;
 
@@ -17,11 +18,24 @@ public class ReplayArchive
         Action done = null
     )
     {
-        byte[] rawReplay = ReplaySerializer.SerializeReplayFile(replay);
+        try
+        {
+            byte[] rawReplay = ReplaySerializer.SerializeReplayFile(replay);
+            
+            Main.instance.LoggerInstance.Msg($"Replay data serialized ({Utilities.FormatBytes(rawReplay.Length)})");
 
-        byte[] compressedReplay = await Task.Run(() => ReplayCodec.Compress(rawReplay));
+            byte[] compressedReplay = await Task.Run(() => ReplayCodec.Compress(rawReplay));
 
-        MelonCoroutines.Start(FinishOnMainThread(outputPath, replay, compressedReplay, done));
+            Main.instance.LoggerInstance.Msg($"Compression complete ({Utilities.FormatBytes(rawReplay.Length)} -> {Utilities.FormatBytes(compressedReplay.Length)}, " +
+                                             $"{100 - (compressedReplay.Length * 100.0 / rawReplay.Length):0.#}% reduction).");
+            
+            MelonCoroutines.Start(FinishOnMainThread(outputPath, replay, compressedReplay, done));
+        }
+        catch (Exception ex)
+        { 
+            Main.ReplayError($"Saving replay to disk failed: {ex}");
+            throw;
+        }
     }
 
     static IEnumerator FinishOnMainThread(

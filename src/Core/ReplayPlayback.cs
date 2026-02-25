@@ -244,6 +244,8 @@ public class ReplayPlayback
 
             for (int i = 0; i < PlaybackPlayers.Length; i++)
             {
+                if (PlaybackPlayers[i] == null) continue;
+                
                 var shiftstones = PlaybackPlayers[i].Controller.GetSubsystem<PlayerShiftstoneSystem>().GetCurrentShiftStoneConfiguration();
                 
                 playbackPlayerStates[i] = new PlaybackPlayerState
@@ -262,11 +264,14 @@ public class ReplayPlayback
                 {
                     playbackPlayer.Controller.transform.GetChild(6).gameObject.SetActive(false);
                     playbackPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
+                    playbackPlayer.Controller.transform.position = Vector3.zero;
                 }
             }
         
             isPlaying = true;
             TogglePlayback(true);
+
+            ReplayRoot.transform.position = Vector3.zero;
             
             ReplayAPI.ReplayStartedInternal(currentReplay);
         }));
@@ -375,7 +380,11 @@ public class ReplayPlayback
 
         var wasHostById = new Dictionary<string, bool>();
         foreach (var p in currentReplay.Header.Players)
+        {
+            if (p == null) continue;
             wasHostById[p.MasterId] = p.WasHost;
+        }
+            
 
         Player host = null;
         Player local = Main.LocalPlayer;
@@ -410,8 +419,16 @@ public class ReplayPlayback
 
         for (int i = 0; i < PlaybackPlayers.Length; i++)
         {
+            var pInfo = currentReplay.Header.Players[i];
+
+            if (pInfo == null)
+            {
+                Main.ReplayError($"Header.Players[{i}] is null.");
+                continue;
+            }
+            
             Clone temp = null;
-            MelonCoroutines.Start(BuildClone(currentReplay.Header.Players[i], c => temp = c));
+            MelonCoroutines.Start(BuildClone(pInfo, c => temp = c));
 
             while (temp == null)
                 yield return null;
@@ -760,6 +777,8 @@ public class ReplayPlayback
         for (int i = 0; i < PlaybackPlayers.Length; i++)
         {
             var playbackPlayer = PlaybackPlayers[i];
+            if (playbackPlayer == null) continue;
+            
             var pa = a.Players[i];
             var pb = b.Players[i];
 

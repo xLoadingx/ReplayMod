@@ -429,7 +429,7 @@ public class ReplayRecording
 
         replayInfo.Header.Title = ReplayFormatting.FormatReplayString(pattern, replayInfo.Header);
         
-        Main.instance.LoggerInstance.Msg($"{logPrefix} saved after {duration:F2}s ({frames.Length} frames)");
+        Main.instance.LoggerInstance.Msg($"{logPrefix} finished ({frames.Length} frames, {duration:F2}s).");
 
         string path = $"{ReplayFiles.replayFolder}/Replays/{ReplayFormatting.GetReplayName(replayInfo, isBufferClip)}";
         ReplayArchive.BuildReplayPackage(

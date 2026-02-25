@@ -250,6 +250,20 @@ public static class Utilities
         return markers;
     }
 
+    public static string FormatBytes(long bytes)
+    {
+        const double KB = 1024;
+        const double MB = KB * 1024;
+
+        if (bytes >= MB)
+            return $"{bytes / MB:0.##} MB";
+
+        if (bytes >= KB)
+            return $"{bytes / KB:0.##} KB";
+
+        return $"{bytes} B";
+    }
+
     // ----- Lerping -----
     
     public static float EaseInOut(float t) => t < 0.5f ? 2 * t * t : 1 - Pow(-2 * t + 2, 2) / 2;
