@@ -12,7 +12,7 @@ using RumbleModUIPlus;
 using UnityEngine;
 using BuildInfo = ReplayMod.Core.BuildInfo;
 using CompressionLevel = System.IO.Compression.CompressionLevel;
-using Tags = RumbleModUIPlus.Tags;
+using Mod = RumbleModUI.Mod;
 
 namespace ReplayMod.Replay;
 
@@ -124,6 +124,11 @@ public static class ReplayAPI
     /// </summary>
     public static Version FormatVersion => new (BuildInfo.FormatVersion);
 
+    /// <summary>
+    /// Returns the ModUI reference of the mod.
+    /// </summary>
+    public static Mod ReplayMod => Main.replayMod;
+    
     /// <summary>
     /// Gets the list of all player clones in the active playback.
     /// </summary>
@@ -436,25 +441,92 @@ public static class ReplayAPI
 }
 
 /// <summary>
-/// Represents a registered replay extension definition.
-/// Stores callbacks and metadata used during replay serialization.
+/// Base class for replay extensions.
+///
+/// Extensions can work with the way replays are serialized by overriding
+/// the provided virtual methods.
 /// </summary>
 public abstract class ReplayExtension
 {
+    /// <summary>
+    /// A stable, unique identifier for this extension.
+    /// Chaging this value will break compatibility with
+    /// previously recorded replays using this extension.
+    /// </summary>
     public abstract string Id { get; }
-        
+    
+    /// <summary>
+    /// The settings folder for this extension.
+    /// Additional settings can be added to this folder after registration.
+    /// </summary>
     public ModSettingFolder Settings { get; internal set; }
+    
+    /// <summary>
+    /// The enable toggle controlling whether this extension
+    /// is allowed to serialize its data.
+    /// </summary>
     public ModSetting<bool> Enabled { get; internal set; }
+    
+    /// <summary>
+    /// Gets whether this extension is currently enabled.
+    /// </summary>
     public bool IsEnabled => (bool)Enabled.SavedValue;
 
+    /// <summary>
+    /// Called when building the replay archive.
+    /// Allows the extension to write data into the archive.
+    /// </summary>
     public virtual void OnBuild(ReplayAPI.ArchiveBuilder builder) { }
+    
+    /// <summary>
+    /// Called when reading the replay archive.
+    /// Allows the extension to read data from the archive
+    /// written during <see cref="OnBuild"/>.
+    /// </summary>
     public virtual void OnRead(ReplayAPI.ArchiveReader reader) { }
 
+    /// <summary>
+    /// Gets the stable numeric identifier derived from <see cref="Id"/>.
+    /// Used internally to associate frame data with this extension.
+    /// </summary>
     public int FrameExtensionId => ReplayAPI.ComputeStableId(Id);
 
+    /// <summary>
+    /// Called during recording for each captured frame.
+    /// Extensions should capture live state here and attach it
+    /// to the tprovided <see cref="Frame"/> using
+    /// <c>Frame.SetExtensionData(...)</c>.
+    /// </summary>
+    /// <param name="frame">The frame currently being recorded.</param>
+    /// <param name="isBuffer">True if this frame is part of the rolling buffer.</param>
     public virtual void OnRecordFrame(Frame frame, bool isBuffer) { }
+    
+    /// <summary>
+    /// Called when serializing a recorded frame.
+    /// Extensions should write previously recorded frame data
+    /// using the provided <see cref="ReplayAPI.FrameExtensionWriter"/>.
+    /// </summary>
+    /// <param name="writer">The writer for this frame's extension chunk.</param>
+    /// <param name="frame">The frame being serialized.</param>
     public virtual void OnWriteFrame(ReplayAPI.FrameExtensionWriter writer, Frame frame) { }
     
-    public virtual void OnPlaybackFrame(Frame frame, Frame nextFrame) { }
+    /// <summary>
+    /// Called when deserializing a frame extension chunk.
+    /// Extensions should reconstruct state and attach it to the
+    /// provided <see cref="Frame"/> using
+    /// <c>Frame.SetExtensionData(...)</c>.
+    /// </summary>
+    /// <param name="reader">Binary reader positioned at the extension payload.</param>
+    /// <param name="frame">The frame being reconstructed.</param>
+    /// <param name="index">The previously written index of this extension chunk. Can be ignored if unused.</param>
     public virtual void OnReadFrame(BinaryReader reader, Frame frame, int index) { }
+    
+    /// <summary>
+    /// Called during playback for each frame.
+    /// Extensions should retrieve previously reconstructed state
+    /// from the frame and apply it to the live scene.
+    /// </summary>
+    /// <param name="frame">The current frame being played back.</param>
+    /// <param name="nextFrame">The next frame in playback order. May be null if this is the last/first frame.</param>
+    public virtual void OnPlaybackFrame(Frame frame, Frame nextFrame) { }
 }

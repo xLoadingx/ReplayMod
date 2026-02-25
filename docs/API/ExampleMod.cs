@@ -34,7 +34,7 @@ public class ExampleMod : MelonMod
         mod = ReplayAPI.RegisterExtension(new BellExtension());
 
         // Extensions can have their own settings.
-        recordBell = Main.replayMod.AddToList("Record Bell", true, 0, "Toggles whether the bell is recorded.", new Tags());
+        recordBell = ReplayAPI.ReplayMod.AddToList("Record Bell", true, 0, "Toggles whether the bell is recorded.", new Tags());
         mod.Settings.AddSetting(recordBell);
 
         ReplayAPI.onReplayEnded += _ => {

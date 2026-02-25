@@ -4,7 +4,6 @@ using System.Linq;
 using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Managers;
-using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Networking.MatchFlow;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
@@ -467,7 +466,6 @@ public class Main : MelonMod
                 ext.Enabled = extensionToggle;
             }
         }
-        
         
         var otherFolder = replayMod.AddFolder("Other", "Miscellaneous settings.");
 
