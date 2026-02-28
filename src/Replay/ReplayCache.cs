@@ -43,12 +43,11 @@ public static class ReplayCache
     {
         { "StructureCollision_VFX", FXOneShotType.StructureCollision },
         { "Ricochet_VFX", FXOneShotType.Ricochet },
-        { "Ground_VFX", FXOneShotType.Grounded },
-        { "Unground_VFX", FXOneShotType.Ungrounded },
-        { "DustImpact_VFX", FXOneShotType.DustImpact },
-        { "DustSpawn_VFX", FXOneShotType.Spawn },
-        { "DustBreak_VFX", FXOneShotType.Break },
-        { "DustBreakDISC_VFX", FXOneShotType.BreakDisc },
+        { "VFX_Dust_Modifier_Ground", FXOneShotType.Grounded },
+        { "VFX_Dust_Modifier_Unground", FXOneShotType.Ungrounded },
+        { "VFX_Dust_Structure_Impact", FXOneShotType.DustImpact },
+        { "VFX_Dust_Structure_Spawn", FXOneShotType.Spawn },
+        { "VFX_Dust_Structure_Break", FXOneShotType.Break },
         { "RockCamSpawn_VFX", FXOneShotType.RockCamSpawn },
         { "RockCamDespawn_VFX", FXOneShotType.RockCamDespawn },
         { "PlayerBoxInteractionVFX",FXOneShotType.Fistbump },
@@ -65,7 +64,6 @@ public static class ReplayCache
         { FXOneShotType.DustImpact, "DustImpact_VFX" },
         { FXOneShotType.Spawn, "DustSpawn_VFX" },
         { FXOneShotType.Break, "DustBreak_VFX" },
-        { FXOneShotType.BreakDisc, "DustBreakDISC_VFX" },
         { FXOneShotType.RockCamSpawn, "RockCamSpawn_VFX" },
         { FXOneShotType.RockCamDespawn, "RockCamDespawn_VFX" },
         { FXOneShotType.Fistbump, "PlayerBoxInteractionVFX" },
@@ -73,7 +71,6 @@ public static class ReplayCache
         { FXOneShotType.Jump, "Jump_VFX" },
         { FXOneShotType.Dash, "Dash_VFX" }
     };
-
     public static readonly Dictionary<FXOneShotType, string> FXToSFXName = new()
     {
         { FXOneShotType.ImpactLight, "Call_Structure_Impact_Light" },
@@ -102,6 +99,10 @@ public static class ReplayCache
             var name = pool.poolItem.resourceName;
 
             if (name.Contains("RockCube")) structurePools[StructureType.Cube] = pool;
+            else if (name.Contains("PrisonedPillar")) structurePools[StructureType.PrisonedPillar] = pool;
+            else if (name.Contains("WrappedWall")) structurePools[StructureType.WrappedWall] = pool;
+            else if (name.Contains("DockedDisk")) structurePools[StructureType.DockedDisk] = pool;
+            else if (name.Contains("CageCube")) structurePools[StructureType.CageCube] = pool;
             else if (name.Contains("Pillar")) structurePools[StructureType.Pillar] = pool;
             else if (name.Contains("Disc")) structurePools[StructureType.Disc] = pool;
             else if (name.Contains("Wall")) structurePools[StructureType.Wall] = pool;
@@ -112,6 +113,7 @@ public static class ReplayCache
                 structurePools[StructureType.CagedBall] = pool;
                 structurePools[StructureType.TetheredCagedBall] = pool;
             }
+            else if (name.Contains("StructureTarget")) structurePools[StructureType.Target] = pool;
         }
         
         AudioCall[] audioCalls = Resources.FindObjectsOfTypeAll<AudioCall>();

@@ -1,4 +1,5 @@
 using System;
+using Il2CppRUMBLE.Input;
 using Il2CppRUMBLE.Interactions.InteractionBase;
 using Il2CppRUMBLE.Managers;
 using Il2CppRUMBLE.Players.Subsystems;
@@ -22,9 +23,9 @@ public static class ReplayPlaybackControls
     public static TextMeshPro playbackTitle;
     public static TextMeshPro playbackSpeedText;
 
-    public static Image playButtonSprite;
-    public static Sprite pauseSprite;
-    public static Sprite playSprite;
+    public static MeshRenderer playButtonSprite;
+    public static Texture2D pauseSprite;
+    public static Texture2D playSprite;
 
     public static DestroyOnPunch destroyOnPunch;
 
@@ -84,6 +85,7 @@ public static class ReplayPlaybackControls
             playbackControls.transform.position = position;
             playbackControls.transform.rotation = rotation;
             playbackControls.SetActive(true);
+            playbackControls.transform.GetChild(0).gameObject.SetActive(true);
 
             AudioManager.instance.Play(ReplayCache.SFX["Call_Slab_Construct"], Main.instance.head.position);
         }
@@ -96,6 +98,7 @@ public static class ReplayPlaybackControls
         playbackControlsOpen = false;
     
         playbackControls.SetActive(false);
+        playbackControls.transform.GetChild(0).gameObject.SetActive(false);
         
         AudioManager.instance.Play(ReplayCache.SFX["Call_Slab_Dismiss"], Main.instance.head.position);
         PoolManager.instance.GetPool("DustBreak_VFX").FetchFromPool(playbackControls.transform.position, playbackControls.transform.rotation)
@@ -119,11 +122,11 @@ public class DestroyOnPunch : MonoBehaviour
         bool isLeftHand = true;
         if (other.name.Contains("Bone_Pointer_C_L"))
         {
-            velocity = leftHand.SampleVelocity(1);
+            velocity = leftHand.GetComponent<Rigidbody>().velocity;
         }
         else if (other.name.Contains("Bone_Pointer_C_R"))
         {
-            velocity = rightHand.SampleVelocity(1);
+            velocity = rightHand.GetComponent<Rigidbody>().velocity;
             isLeftHand = false;
         }
 

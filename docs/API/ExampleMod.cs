@@ -2,10 +2,8 @@ using System.IO;
 using MelonLoader;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
-using RumbleModdingAPI;
 using RumbleModUI;
 using UnityEngine;
-using Main = ReplayMod.Core.Main;
 
 namespace ReplayMod.docs.Extensions;
 
@@ -67,7 +65,7 @@ public class ExampleMod : MelonMod
             if (!(bool)recordBell.SavedValue)
                 return;
 
-            var bell = Calls.GameObjects.Park.LOGIC.Interactables.Bell.GetGameObject();
+            var bell = new GameObject("Bell"); /*GameObjects.Park.INTERACTABLES.Bell.GetGameObject();*/ // RIP Bell
             if (bell == null)
                 return;
             
@@ -152,7 +150,7 @@ public class ExampleMod : MelonMod
             if (!frame.TryGetExtensionData(this, out BellState state))
                 return;
             
-            var bell = Calls.GameObjects.Park.LOGIC.Interactables.Bell.GetGameObject();
+            var bell = new GameObject("Bell"); /*GameObjects.Park.INTERACTABLES.Bell.GetGameObject();*/ // RIP Bell;
             if (bell == null)
                 return;
 

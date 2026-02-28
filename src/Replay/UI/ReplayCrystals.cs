@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using RumbleModdingAPI;
+using RumbleModdingAPI.RMAPI;
 using UnityEngine;
 using UnityEngine.VFX;
 using Random = UnityEngine.Random;
@@ -174,7 +175,7 @@ public static class ReplayCrystals
         crystal.transform.position = position;
         crystal.Title = name;
 
-        GameObject text = Calls.Create.NewText(name, 1f, Color.white, Vector3.zero, Quaternion.identity);
+        GameObject text = Create.NewText(name, 1f, Color.white, Vector3.zero, Quaternion.identity);
 
         text.name = "Replay Title";
         text.transform.SetParent(crystal.transform, false);
@@ -219,7 +220,7 @@ public static class ReplayCrystals
         crystal.hasLeftTable = true;
         crystal.gameObject.SetActive(true);
 
-        GameObject text = Calls.Create.NewText("", 1f, Color.white, Vector3.zero, Quaternion.identity);
+        GameObject text = Create.NewText("", 1f, Color.white, Vector3.zero, Quaternion.identity);
 
         text.name = "Replay Title";
         text.transform.SetParent(crystal.transform, false);

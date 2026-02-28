@@ -161,7 +161,7 @@ public static class Utilities
     
     public static IEnumerable<GameObject> EnumerateMatchPedestals()
     {
-        return GameObject.FindObjectsOfType<Pedestal>(true).Select(p => p.gameObject);
+        return GameObject.FindObjectsOfType<Pedestal>(true).Where(p => p.gameObject.scene.buildIndex != -1).Select(p => p.gameObject);
     }
     
     public static IEnumerator LoadMap(int index, float fadeDuration = 2f, Action onLoaded = null, float onLoadedDelay = 0.01f)

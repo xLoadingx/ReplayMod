@@ -211,7 +211,6 @@ public class ReplaySettings : MonoBehaviour
             var local = Main.LocalPlayer;
             allEntries.Add((
                 new UserData(
-                    PlatformManager.CurrentPlatform,
                     local.Data.GeneralData.PlayFabMasterId,
                     Guid.NewGuid().ToString(),
                     $"You ({local.Data.GeneralData.PublicUsername})",
@@ -229,7 +228,6 @@ public class ReplaySettings : MonoBehaviour
             
             allEntries.Add((
                 new UserData(
-                    PlatformManager.Platform.Unknown,
                      $"{players[i].MasterId}_{Guid.NewGuid().ToString()}",
                     Guid.NewGuid().ToString(),
                     players[i].Name,

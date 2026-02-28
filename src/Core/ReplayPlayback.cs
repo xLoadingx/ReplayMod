@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppRUMBLE.Combat.ShiftStones;
+using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Input;
 using Il2CppRUMBLE.Managers;
 using Il2CppRUMBLE.MoveSystem;
@@ -20,12 +21,14 @@ using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using RumbleModdingAPI;
+using RumbleModdingAPI.RMAPI;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
 using EventType = ReplayMod.Replay.Serialization.EventType;
 using PlayerState = ReplayMod.Replay.Serialization.PlayerState;
+using Utilities = ReplayMod.Replay.Utilities;
 
 namespace ReplayMod.Core;
 
@@ -64,6 +67,7 @@ public class ReplayPlayback
     public GameObject replayStructures;
     public GameObject replayPlayers;
     public GameObject pedestalsParent;
+    public GameObject scenePropsParent;
     public GameObject VFXParent;
     
     // Structures
@@ -80,6 +84,9 @@ public class ReplayPlayback
     // Pedestals
     public List<GameObject> replayPedestals = new();
     public PlaybackPedestalState[] playbackPedestalStates;
+    
+    // Scene Props
+    public List<GameObject> replaySceneProps = new();
     
     // Events
     public int lastEventFrame = -1;
@@ -133,6 +140,7 @@ public class ReplayPlayback
         ReplayRoot = new GameObject("Replay Root");
         pedestalsParent = new GameObject("Pedestals");
         replayPlayers = new GameObject("Replay Players");
+        scenePropsParent = new GameObject("Replay Scene Props");
         
         VFXParent = new GameObject("Replay VFX");
         VFXParent.transform.SetParent(ReplayRoot.transform);
@@ -153,13 +161,27 @@ public class ReplayPlayback
             HiddenStructures.Add(structure);
         }
 
+        foreach (var fruit in GameObject.FindObjectsOfType<Fruit>())
+        {
+            fruit.GetComponent<Collider>().enabled = false;
+            fruit.GetComponent<Renderer>().enabled = false;
+        }
+
         PlaybackStructures = new GameObject[currentReplay.Header.Structures.Length];
         replayStructures = new GameObject("Replay Structures");
         
         for (int i = 0; i < PlaybackStructures.Length; i++)
         {
-            var type = currentReplay.Header.Structures[i].Type;
-            PlaybackStructures[i] = ReplayCache.structurePools.GetValueOrDefault(type).FetchFromPool().gameObject;
+            var headerStructure = currentReplay.Header.Structures[i];
+            var pool = ReplayCache.structurePools.GetValueOrDefault(headerStructure.Type);
+
+            if (pool == null)
+            {
+                Main.ReplayError($"Could not find pool for structure of type '{headerStructure.Type}'");
+                return;
+            }
+            
+            PlaybackStructures[i] = ReplayCache.structurePools.GetValueOrDefault(headerStructure.Type).FetchFromPool().gameObject;
 
             if (disableBaseStructureSystems)
             {
@@ -167,6 +189,7 @@ public class ReplayPlayback
                 structure.indistructable = true;
                 structure.onBecameFreeAudio = null;
                 structure.onBecameGroundedAudio = null;
+                structure.structureID = headerStructure.structureId;
 
                 foreach (var col in structure.GetComponentsInChildren<Collider>())
                     col.enabled = false;
@@ -175,6 +198,9 @@ public class ReplayPlayback
             
                 if (PlaybackStructures[i].TryGetComponent<NetworkGameObject>(out var networkGameObject))
                     GameObject.Destroy(networkGameObject);
+
+                if (currentReplay.Header.Structures[i].Type == StructureType.Target)
+                    structure.GetComponent<StructureTarget>().SetTargetBaseTierPointsAndUpdateVisuals(headerStructure.targetDamage ?? 1);
                 
                 if (Recording.isRecording || Recording.isBuffering)
                     Recording.TryRegisterStructure(structure);
@@ -187,22 +213,7 @@ public class ReplayPlayback
         playbackStructureStates = new PlaybackStructureState[PlaybackStructures.Length];
 
         for (int i = 0; i < PlaybackStructures.Length; i++)
-        {
-            var structure = PlaybackStructures[i];
-            var name = structure.name;
-
-            bool grounded = name switch
-            {
-                "Ball" => false,
-                "Disc" => false,
-                _ => true
-            };
-
             playbackStructureStates[i] = new PlaybackStructureState();
-
-            if (!grounded)
-                playbackStructureStates[i].currentState = StructureStateType.Normal;
-        }
         
         // ------ Players ------
 
@@ -221,8 +232,9 @@ public class ReplayPlayback
         
         replayPedestals.Clear();
         
-        foreach (var pedestal in Utilities.EnumerateMatchPedestals())
+        for (int i = 0; i < currentReplay.Header.PedestalCount; i++)
         {
+            var pedestal = PoolManager.instance.GetPool("Pedestal").FetchFromPool().gameObject;
             pedestal.transform.SetParent(pedestalsParent.transform);
             replayPedestals.Add(pedestal);
             
@@ -232,6 +244,25 @@ public class ReplayPlayback
         
         playbackPedestalStates = new PlaybackPedestalState[replayPedestals.Count];
         
+        // ------ Scene Props ------
+
+        replaySceneProps.Clear();
+
+        for (int i = 0; i < currentReplay.Header.ScenePropCount; i++)
+        {
+            var scenePropPool = currentReplay.Header.SceneProps[i].type switch
+            {
+                ScenePropType.Fruit => PoolManager.instance.GetPool("Fruit"),
+                _ => throw new Exception($"Unknown ScenePropType: {currentReplay.Header.SceneProps[i].type}")
+            };
+
+            if (scenePropPool == null) continue;
+            
+            var sceneProp = scenePropPool.FetchFromPool().gameObject;
+            sceneProp.transform.SetParent(scenePropsParent.transform);
+            replaySceneProps.Add(sceneProp);
+        }
+        
         // --------------
         
         MelonCoroutines.Start(SpawnClones(() =>
@@ -239,6 +270,7 @@ public class ReplayPlayback
             replayStructures.transform.SetParent(ReplayRoot.transform);
             replayPlayers.transform.SetParent(ReplayRoot.transform);
             pedestalsParent.transform.SetParent(ReplayRoot.transform);
+            scenePropsParent.transform.SetParent(ReplayRoot.transform);
         
             playbackPlayerStates = new PlaybackPlayerState[PlaybackPlayers.Length];
 
@@ -246,7 +278,7 @@ public class ReplayPlayback
             {
                 if (PlaybackPlayers[i] == null) continue;
                 
-                var shiftstones = PlaybackPlayers[i].Controller.GetSubsystem<PlayerShiftstoneSystem>().GetCurrentShiftStoneConfiguration();
+                var shiftstones = PlaybackPlayers[i].Controller.PlayerShiftstones.GetCurrentShiftStoneConfiguration();
                 
                 playbackPlayerStates[i] = new PlaybackPlayerState
                 {
@@ -334,6 +366,12 @@ public class ReplayPlayback
             if (structure != null)
                 structure.gameObject.SetActive(true);
         }
+
+        foreach (var fruit in GameObject.FindObjectsOfType<Fruit>(true))
+        {
+            fruit.GetComponent<Collider>().enabled = true;
+            fruit.GetComponent<Renderer>().enabled = true;
+        }
         
         HiddenStructures.Clear();
         
@@ -351,10 +389,19 @@ public class ReplayPlayback
             for (int i = pedestalsParent.transform.childCount - 1; i >= 0; i--)
             {
                 var pedestal = pedestalsParent.transform.GetChild(i);
-                pedestal.transform.SetParent(null);
-                pedestal.gameObject.SetActive(false);
+                GameObject.Destroy(pedestal.gameObject);
             }
             GameObject.Destroy(pedestalsParent);
+        }
+
+        if (scenePropsParent != null)
+        {
+            for (int i = scenePropsParent.transform.childCount - 1; i >= 0; i--)
+            {
+                var sceneProp =  scenePropsParent.transform.GetChild(i);
+                GameObject.Destroy(sceneProp.gameObject);
+            }
+            GameObject.Destroy(scenePropsParent);
         }
 
         if (ReplayRoot != null)
@@ -368,6 +415,8 @@ public class ReplayPlayback
         replayPlayers = null;
         PlaybackStructures = null;
         PlaybackPlayers = null;
+        
+        Main.LocalPlayer.Controller.PlayerNameTag.gameObject.SetActive(false);
 
         ReplayAPI.ReplayEndedInternal(currentReplay);
     }
@@ -455,7 +504,7 @@ public class ReplayPlayback
         PlayerData data = new PlayerData(
             new GeneralData
             {
-                PlayFabMasterId = $"{pInfo.MasterId}_{randomID}",
+                PlayFabMasterId = $"{pInfo.MasterId}",
                 PlayFabTitleId = randomID,
                 BattlePoints = pInfo.BattlePoints,
                 PublicUsername = pInfo.Name
@@ -470,13 +519,12 @@ public class ReplayPlayback
 
         Player newPlayer = Player.CreateRemotePlayer(data);
         PlayerManager.instance.AllPlayers.Add(newPlayer);
-        PlayerManager.instance.SpawnPlayerController(newPlayer, initialPosition, Quaternion.identity);
+        PlayerManager.instance.SpawnPlayerController(newPlayer, Vector3.zero, Quaternion.identity);
 
         while (newPlayer.Controller == null)
             yield return null;
 
         GameObject body = newPlayer.Controller.gameObject;
-        body.transform.position = initialPosition;
         
         body.name = $"Player_{pInfo.MasterId}";
         
@@ -486,13 +534,15 @@ public class ReplayPlayback
         GameObject Head = Overall.transform.GetChild(0).GetChild(0).gameObject;
 
         GameObject.Destroy(Overall.GetComponent<NetworkGameObject>());
+        GameObject.Destroy(Overall.GetComponent<PlayerSessionStateSystem>());
+        newPlayer.Controller.PlayerAnimator.animator.SetBool(-414412114, false);
         GameObject.Destroy(Overall.GetComponent<Rigidbody>());
         
         var localTransform = Main.LocalPlayer.Controller.transform;
         newPlayer.Controller.transform.position = localTransform.position;
         newPlayer.Controller.transform.rotation = localTransform.rotation;
 
-        var physics = body.transform.GetChild(5);
+        var physics = body.transform.GetChild(3);
         var lControllerPhysics = physics.GetChild(2).GetComponent<ConfigurableJoint>();
         lControllerPhysics.xMotion = 0;
         lControllerPhysics.yMotion = 0;
@@ -506,10 +556,10 @@ public class ReplayPlayback
         foreach (var driver in body.GetComponentsInChildren<TrackedPoseDriver>())
             driver.enabled = false;
         
-        body.transform.GetChild(10).gameObject.SetActive(false);
+        body.transform.GetChild(6).gameObject.SetActive(false);
 
         var poseSystem = body.GetComponent<PlayerPoseSystem>();
-        foreach (var pose in Main.LocalPlayer.Controller.GetSubsystem<PlayerPoseSystem>().currentInputPoses)
+        foreach (var pose in Main.LocalPlayer.Controller.PlayerPoseSystem.currentInputPoses)
             poseSystem.currentInputPoses.Add(new PoseInputSource(pose.PoseSet));
         poseSystem.enabled = true;
 
@@ -520,6 +570,9 @@ public class ReplayPlayback
         clone.RightHand = RHand;
         clone.Head = Head;
         clone.Controller = newPlayer.Controller;
+        
+        body.transform.position = initialPosition;
+        body.transform.rotation = Quaternion.identity;
 
         callback?.Invoke(clone);
     }
@@ -552,17 +605,6 @@ public class ReplayPlayback
             var sb = b.Structures[i];
 
             ref var state = ref playbackStructureStates[i];
-
-            var vfxSize = playbackStructure.name switch
-            {
-                "Disc" or "Ball" => 1f,
-                "RockCube" => 1.5f,
-                "Wall" => 2f,
-
-                "LargeRock" => 2.7f,
-
-                _ => 1f
-            };
 
             foreach (var collider in playbackStructure.GetComponentsInChildren<Collider>())
                 collider.enabled = false;
@@ -614,17 +656,18 @@ public class ReplayPlayback
             if (state.currentState != sb.currentState)
             {
                 state.currentState = sb.currentState;
+                structureComp.currentPhysicsState = sb.currentState;
 
-                bool parryFromHistop = sa.currentState == StructureStateType.Frozen && sb.currentState == StructureStateType.Float;
+                bool parryFromHistop = sa.currentState == Structure.PhysicsState.Frozen && sb.currentState == Structure.PhysicsState.Floating;
 
                 // Hitstop
-                bool isHitstop = state.currentState == StructureStateType.Frozen;
+                bool isHitstop = state.currentState == Structure.PhysicsState.Frozen;
                 var renderer = structureComp.transform.GetChild(0).GetComponent<MeshRenderer>();
                 renderer?.material?.SetFloat("_shake", isHitstop ? 1 : 0);
                 renderer?.material?.SetFloat("_shakeFrequency", 75 * playbackSpeed);
                 
                 // Parry
-                bool isParried = state.currentState == StructureStateType.Float;
+                bool isParried = state.currentState == Structure.PhysicsState.Floating;
                 if (!parryFromHistop)
                 {
                     if (isParried)
@@ -634,8 +677,10 @@ public class ReplayPlayback
 
                         effect.transform.localPosition = sa.position;
                         effect.transform.localRotation = Quaternion.identity;
-                        effect.transform.localScale = Vector3.one * vfxSize;
-                        effect.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
+                        var visualEffect = effect.GetComponent<VisualEffect>();
+                        visualEffect.playRate = Abs(playbackSpeed);
+                        effect.GetComponent<PooledVisualEffect>().parameterCollection.Apply(visualEffect, structureComp);
+                        effect.GetComponent<VisualEffect>().Play();
                         effect.AddComponent<DeleteAfterSeconds>();
                         var tag = effect.AddComponent<ReplayTag>();
                         tag.attachedStructure = structureComp;
@@ -652,16 +697,6 @@ public class ReplayPlayback
                     }
                 }
             }
-
-            if (state.grounded != sb.grounded && frameIndex != 0)
-            {
-                if (sb.grounded)
-                    structureComp.processableComponent.SetCurrentState(structureComp.groundedState);
-                else
-                    structureComp.processableComponent.Awake();
-            }
-
-            state.grounded = structureComp.IsGrounded;
             
             // Hold started
             if (!state.isLeftHeld && sb.isLeftHeld)
@@ -677,8 +712,10 @@ public class ReplayPlayback
 
                 effect.transform.localPosition = Vector3.zero;
                 effect.transform.localRotation = Quaternion.identity;
-                effect.transform.localScale = Vector3.one * vfxSize;
-                effect.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
+                var visualEffect = effect.GetComponent<VisualEffect>();
+                visualEffect.playRate = Abs(playbackSpeed);
+                effect.GetComponent<PooledVisualEffect>().parameterCollection.Apply(visualEffect, structureComp);
+                effect.GetComponent<VisualEffect>().Play();
                 var tag = effect.AddComponent<ReplayTag>();
                 tag.Type = "StructureHold_" + hand;
 
@@ -718,8 +755,10 @@ public class ReplayPlayback
 
                 effect.transform.localPosition = Vector3.zero;
                 effect.transform.localRotation = Quaternion.identity;
-                effect.transform.localScale = Vector3.one * vfxSize;
-                effect.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
+                var visualEffect = effect.GetComponent<VisualEffect>();
+                visualEffect.playRate = Abs(playbackSpeed);
+                effect.GetComponent<PooledVisualEffect>().parameterCollection.Apply(visualEffect, structureComp);
+                effect.GetComponent<VisualEffect>().Play();
                 var tag = effect.AddComponent<ReplayTag>();
                 tag.Type = "StructureFlick";
 
@@ -785,7 +824,7 @@ public class ReplayPlayback
             ref var state = ref playbackPlayerStates[i];
 
             if (state.health != pb.Health)
-                playbackPlayer.Controller.GetSubsystem<PlayerHealth>().SetHealth(pb.Health, (short)state.health);
+                playbackPlayer.Controller.PlayerHealth.SetHealth(pb.Health, (short)state.health);
             
             state.health = playbackPlayer.Controller.assignedPlayer.Data.HealthPoints;
             
@@ -804,7 +843,7 @@ public class ReplayPlayback
                         .FirstOrDefault(s => s.Value == (StackType)pb.currentStack);
 
                     var stack = playbackPlayer.Controller
-                        .GetSubsystem<PlayerStackProcessor>()
+                        .PlayerProcessor
                         .availableStacks
                         .ToArray()
                         .FirstOrDefault(s => s.CachedName == key.Key);
@@ -812,11 +851,15 @@ public class ReplayPlayback
                     if (stack != null)
                     {
                         playbackPlayer.Controller
-                            .GetSubsystem<PlayerStackProcessor>()
+                            .PlayerProcessor
                             .Execute(stack);
 
                         if (pb.currentStack == (short)StackType.Dash)
                             playbackPlayer.lastDashTime = elapsedPlaybackTime;
+
+                        if (pb.currentStack == (short)StackType.Jump)
+                            AudioManager.instance.Play(ReplayCache.SFX["Call_Modifier_Jump"], 
+                                playbackPlayer.Controller.PlayerVR.headset.Transform.position);
                     }
                 }
             }
@@ -824,7 +867,7 @@ public class ReplayPlayback
             if (state.activeShiftstoneVFX != pb.activeShiftstoneVFX)
             {
                 state.activeShiftstoneVFX = pb.activeShiftstoneVFX;
-                var chest = playbackPlayer.Controller.GetSubsystem<PlayerIK>().VrIK.references.chest;
+                var chest = playbackPlayer.Controller.PlayerIK.VrIK.references.chest;
                 var flags = state.activeShiftstoneVFX;
 
                 TryToggleVFX("Chargestone VFX", PlayerShiftstoneVFX.Charge);
@@ -853,11 +896,11 @@ public class ReplayPlayback
                         vfx.Play();
                         vfx.playRate = Abs(playbackSpeed);
                         AudioManager.instance.Play(ReplayCache.SFX["Call_Shiftstone_Use"], chest.transform.position);
-                        var socketIndex = playbackPlayer.Controller.GetSubsystem<PlayerShiftstoneSystem>().shiftStoneSockets
+                        var socketIndex = playbackPlayer.Controller.PlayerShiftstones.shiftStoneSockets
                             .FirstOrDefault(s => s.assignedShifstone.name == shiftstoneName)?.assignedSocketIndex;
 
                         if (socketIndex.HasValue)
-                            playbackPlayer.Controller.GetSubsystem<PlayerShiftstoneSystem>()
+                            playbackPlayer.Controller.PlayerShiftstones
                                 .ActivateUseShiftstoneEffects(socketIndex == 0 ? InputManager.Hand.Left : InputManager.Hand.Right);
                     }
                     else
@@ -881,7 +924,7 @@ public class ReplayPlayback
             
             void ApplyShiftstone(PlayerController controller, int socketIndex, int shiftstoneIndex)
             {
-                var shiftstoneSystem = controller.GetSubsystem<PlayerShiftstoneSystem>();
+                var shiftstoneSystem = controller.PlayerShiftstones;
                 
                 PooledMonoBehaviour pooledObject = shiftstoneIndex switch
                 {
@@ -906,7 +949,7 @@ public class ReplayPlayback
                 AudioManager.instance.Play(ReplayCache.SFX["Call_Shiftstone_EquipBoth"], pooledObject.transform.position);
             }
 
-            var rockCam = playbackPlayer.Controller.GetSubsystem<PlayerLIV>()?.LckTablet;
+            var rockCam = playbackPlayer.Controller.PlayerLIV?.LckTablet;
             if (rockCam != null)
             {
                 if (state.rockCamActive != pb.rockCamActive)
@@ -931,12 +974,12 @@ public class ReplayPlayback
                 var measurement = new PlayerMeasurement(pb.Length, pb.ArmSpan);
                 state.playerMeasurement = measurement;
 
-                playbackPlayer.Controller.GetSubsystem<PlayerScaling>().ScaleController(measurement);
+                playbackPlayer.Controller.PlayerScaling.ScaleController(measurement);
 
                 UpdateReplayCameraPOV(povPlayer ?? Main.LocalPlayer, ReplaySettings.hideLocalPlayer);
 
                 AudioManager.instance.Play(ReplayCache.SFX["Call_Measurement_Succes"], 
-                    playbackPlayer.Controller.GetSubsystem<PlayerIK>().VrIK.references.head.position
+                    playbackPlayer.Controller.PlayerIK.VrIK.references.head.position
                 );
             }
 
@@ -995,10 +1038,25 @@ public class ReplayPlayback
                 Vector3 pos = Vector3.Lerp(pa.position, pb.position, t);
                 playbackPedestal.transform.localPosition = pos;
             }
-
         }
         
-        // ------ Events 
+        // ------ Scene Props ------
+
+        if (replaySceneProps.Count >= currentReplay.Header.ScenePropCount)
+        {
+            for (int i = 0; i < currentReplay.Header.ScenePropCount; i++)
+            {
+                var playbackSceneProp = replaySceneProps[i];
+                var pa = a.SceneProps[i];
+                var pb = b.SceneProps[i];
+                
+                Vector3 pos = Vector3.Lerp(pa.position, pb.position, t);
+                Quaternion rot = Quaternion.Slerp(pa.rotation, pb.rotation, t);
+                playbackSceneProp.transform.SetLocalPositionAndRotation(pos, rot);
+            }
+        }
+        
+        // ------ Events ------
 
         var events = a.Events;
         if (events == null || lastEventFrame == currentPlaybackFrame)
@@ -1013,25 +1071,26 @@ public class ReplayPlayback
                 case EventType.OneShotFX:
                 {
                     var fx = SpawnFX(evt);
-
+                    
                     if (fx != null)
                     {
-                        GameObject closestStructure = PlaybackStructures
-                            .Where(s => Vector3.Distance(s.transform.position, evt.position) < 2f)
-                            .OrderBy(s => Vector3.Distance(s.transform.position, evt.position))
-                            .FirstOrDefault();
+                        Structure source = null;
                         
-                        if (closestStructure != null && evt.fxType is FXOneShotType.Spawn or FXOneShotType.Break or FXOneShotType.Grounded or FXOneShotType.Ungrounded)
+                        if (evt.structureId != -1)
                         {
-                            float scale = closestStructure.name switch
-                            {
-                                "Ball" or "Disc" or "SmallRock" => 0.7f,
-                                "Wall" or "Cube" => 1f,
-                                "LargeRock" => 1.3f,
-                                _ => 1f
-                            };
+                            source = PlaybackStructures
+                                .Select(s => s.GetComponent<Structure>())
+                                .FirstOrDefault(s => s.structureID == evt.structureId);
+                        }
+                        
+                        if (source != null)
+                        {
+                            fx.GetComponent<PooledVisualEffect>().parameterCollection.Apply(
+                                fx.GetComponent<VisualEffect>(), 
+                                source
+                            );
 
-                            fx.transform.localScale = Vector3.one * scale;
+                            fx.GetComponent<VisualEffect>().Play();
                         }
                     }
 
@@ -1141,14 +1200,15 @@ public class ReplayPlayback
 
         isPaused = !active;
         
-        ReplayPlaybackControls.playButtonSprite.sprite = !isPaused ? ReplayPlaybackControls.pauseSprite : ReplayPlaybackControls.playSprite;
+        ReplayPlaybackControls.playButtonSprite.material
+            .SetTexture("_Texture", !isPaused ? ReplayPlaybackControls.pauseSprite : ReplayPlaybackControls.playSprite);
 
         if (active)
         {
             AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_BackwardLocked"], Main.instance.head.position);
 
             if ((bool)Main.instance.EnableHaptics.SavedValue)
-                Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.05f, 1f, 0.05f);
+                Main.LocalPlayer.Controller.PlayerHaptics.PlayControllerHaptics(1f, 0.05f, 1f, 0.05f);
 
             if (setSpeed)
                 SetPlaybackSpeed(previousPlaybackSpeed);
@@ -1160,7 +1220,7 @@ public class ReplayPlayback
             AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_ForwardUnlocked"], Main.instance.head.position);
 
             if ((bool)Main.instance.EnableHaptics.SavedValue)
-                Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.05f, 1f, 0.05f);
+                Main.LocalPlayer.Controller.PlayerHaptics.PlayControllerHaptics(1f, 0.05f, 1f, 0.05f);
 
             if (setSpeed) 
                 SetPlaybackSpeed(0f);
@@ -1268,7 +1328,7 @@ public class ReplayPlayback
     
     public void UpdateReplayCameraPOV(Player player, bool hideLocalPlayer = false)
     {
-        RecordingCamera cam = Calls.GameObjects.DDOL.GameInstance.Initializable.RecordingCamera.GetGameObject().GetComponent<RecordingCamera>(); 
+        RecordingCamera cam = GameObjects.DDOL.GameInstance.Initializable.RecordingCamera.GetGameObject().GetComponent<RecordingCamera>(); 
         
         var localController = Main.LocalPlayer.Controller.transform;
         
@@ -1277,7 +1337,7 @@ public class ReplayPlayback
         
         localController.GetChild(6).gameObject.SetActive(!hideLocalPlayer);
         
-        var povHead = povPlayer?.Controller.GetSubsystem<PlayerIK>().VrIK.references.head;
+        var povHead = povPlayer?.Controller.PlayerIK.VrIK.references.head;
         if (povHead != null)
         {
             if (povPlayer != null)
@@ -1290,13 +1350,13 @@ public class ReplayPlayback
         povPlayer = player;
         if (player != Main.LocalPlayer)
         {
-            povHead = povPlayer.Controller.GetSubsystem<PlayerIK>().VrIK.references.head;
+            povHead = povPlayer.Controller.PlayerIK.VrIK.references.head;
             povHead.transform.localScale = Vector3.zero;
             povPlayer.Controller.transform.GetChild(6).gameObject.SetActive(false);
             povPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
             
-            Main.LocalPlayer.Controller.GetSubsystem<PlayerCamera>().GetComponent<AudioListener>().enabled = false;
-            povPlayer.Controller.GetSubsystem<PlayerCamera>().GetComponent<AudioListener>().enabled = true;
+            Main.LocalPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
+            povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = true;
             
             
             foreach (var renderer in ReplayPlaybackControls.playbackControls.GetComponentsInChildren<Renderer>(true))
@@ -1305,15 +1365,15 @@ public class ReplayPlayback
                     renderer.gameObject.layer = LayerMask.NameToLayer("PlayerFade");
             }
             
-            cam.localPlayerVR = povPlayer.Controller.GetSubsystem<PlayerVR>();
+            cam.localPlayerVR = povPlayer.Controller.PlayerVR;
         }
         else
         {
-            cam.localPlayerVR = Main.LocalPlayer.Controller.GetSubsystem<PlayerVR>();
+            cam.localPlayerVR = Main.LocalPlayer.Controller.PlayerVR;
             if (povHead != null) povHead.transform.localScale = Vector3.one;
             
-            povPlayer.Controller.GetSubsystem<PlayerCamera>().GetComponent<AudioListener>().enabled = false;
-            Main.LocalPlayer.Controller.GetSubsystem<PlayerCamera>().GetComponent<AudioListener>().enabled = true;
+            povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
+            Main.LocalPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = true;
             
             foreach (var renderer in localController.GetChild(1).GetComponentsInChildren<Renderer>())
                 renderer.gameObject.layer = LayerMask.NameToLayer("PlayerController");
@@ -1333,8 +1393,7 @@ public class ReplayPlayback
         public bool isLeftHeld;
         public bool isRightHeld;
         public bool isFlicked;
-        public bool grounded;
-        public StructureStateType currentState;
+        public Structure.PhysicsState currentState;
     }
 
     public struct PlaybackPlayerState
@@ -1405,9 +1464,9 @@ public class ReplayPlayback
 
             if (pa == null || pm == null || ps == null)
             {
-                pa = Controller.GetSubsystem<PlayerAnimator>();
-                pm = Controller.GetSubsystem<PlayerMovement>();
-                ps = Controller.GetSubsystem<PlayerPoseSystem>();
+                pa = Controller.PlayerAnimator;
+                pm = Controller.PlayerMovement;
+                ps = Controller.PlayerPoseSystem;
             }
 
             int state;

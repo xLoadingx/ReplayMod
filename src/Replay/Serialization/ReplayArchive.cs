@@ -49,7 +49,8 @@ public class ReplayArchive
         
         string manifestJson = JsonConvert.SerializeObject(
             replay.Header,
-            Formatting.Indented
+            Formatting.Indented,
+            new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }
         );
         
         using (var fs = new FileStream(outputPath, FileMode.Create))

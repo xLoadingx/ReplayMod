@@ -52,6 +52,7 @@ public class ReplayRecording
     public Dictionary<string, int> PlayerSlots = new();
     public Dictionary<string, PlayerInfo> PlayerInfos = new();
     public List<StructureInfo> StructureInfos = new();
+    public List<ScenePropInfo> ScenePropInfos = new();
     
     // Replay Buffer
     public Queue<Frame> replayBuffer = new();
@@ -61,6 +62,7 @@ public class ReplayRecording
     // World
     public List<Structure> Structures = new();
     public List<GameObject> Pedestals = new();
+    public List<GameObject> SceneProps = new();
     
     public void HandleRecording()
     {
@@ -106,6 +108,7 @@ public class ReplayRecording
             }
 
             Patches.activations.Clear();
+            Patches.frameSeenEffects.Clear();
             Events.Clear();
         }
 
@@ -199,7 +202,7 @@ public class ReplayRecording
             Transform RHand = VRRig.GetChild(2);
             Transform Head = VRRig.GetChild(0).GetChild(0);
 
-            var shiftstoneSystem = p.Controller.GetSubsystem<PlayerShiftstoneSystem>();
+            var shiftstoneSystem = p.Controller.PlayerShiftstones;
             var currentShiftstoneEffects = shiftstoneSystem.currentShiftstoneEffects.ToArray();
             var shiftstones = shiftstoneSystem.GetCurrentShiftStoneConfiguration();
             int left = shiftstones is { Count: > 0 } ? shiftstones[0] : -1;
@@ -225,8 +228,6 @@ public class ReplayRecording
 
             bool recordFingers = (bool)Main.instance.HandFingerRecording.SavedValue;
             var playerHandPresence = p.Controller.GetSubsystem<PlayerHandPresence>();
-            var LhandInput = playerHandPresence.GetHandPresenceInputForHand(InputManager.Hand.Left);
-            var RhandInput = playerHandPresence.GetHandPresenceInputForHand(InputManager.Hand.Right);
 
             var rockCam = p.Controller.GetSubsystem<PlayerLIV>()?.LckTablet.transform.gameObject;
 
@@ -253,14 +254,20 @@ public class ReplayRecording
                 visualData = p.Data.VisualData.ToPlayfabDataString()
             };
 
-            if (recordFingers)
+            if (p.Controller.PlayerSessionStateSystem.IsUserPresentInVR())
             {
-                playerState.lgripInput = LhandInput.gripInput;
-                playerState.lindexInput = LhandInput.indexInput;
-                playerState.lthumbInput = LhandInput.thumbInput;
-                playerState.rindexInput = RhandInput.indexInput;
-                playerState.rthumbInput = RhandInput.indexInput;
-                playerState.rgripInput = RhandInput.gripInput;
+                var LhandInput = playerHandPresence.GetHandPresenceInputForHand(InputManager.Hand.Left);
+                var RhandInput = playerHandPresence.GetHandPresenceInputForHand(InputManager.Hand.Right);
+                
+                if (recordFingers)
+                {
+                    playerState.lgripInput = LhandInput.gripInput;
+                    playerState.lindexInput = LhandInput.indexInput;
+                    playerState.lthumbInput = LhandInput.thumbInput;
+                    playerState.rindexInput = RhandInput.indexInput;
+                    playerState.rthumbInput = RhandInput.indexInput;
+                    playerState.rgripInput = RhandInput.gripInput;
+                }
             }
 
             if (rockCam != null)
@@ -290,29 +297,16 @@ public class ReplayRecording
             bool isTargetDisk = (structure.name.Contains("Disc") && structure.transform.GetChild(0).GetChild(0).gameObject.activeInHierarchy);
 
             var holdVFXCount = structure.GetComponentsInChildren<VisualEffect>().Count(vfx => vfx.name.Contains("Hold_VFX"));
-            
-            StructureStateType type = structure.processableComponent.currentState.name switch
-            {
-                "default" => StructureStateType.Default,
-                "Frozen" => StructureStateType.Frozen,
-                "Float" => StructureStateType.Float,
-                "FreeGrounded" => StructureStateType.FreeGrounded,
-                "StableGrounded" => StructureStateType.StableGrounded,
-                "Normal" => StructureStateType.Normal,
-                "Free" => StructureStateType.Free,
-                _ => StructureStateType.Default
-            };
 
             structureStates[i] = new StructureState
             {
                 position = structure.transform.position,
                 rotation = structure.transform.rotation,
                 active = structure.gameObject.activeInHierarchy,
-                grounded = structure.IsGrounded || (structure.activeJointControl != null && structure.processableComponent.currentState == structure.frozenState),
                 isLeftHeld = holdVFXCount >= 1,
                 isRightHeld = holdVFXCount >= 2,
                 isFlicked = flickedStructures.Contains(structure.gameObject) || hasReplayFlickVFX,
-                currentState = type,
+                currentState = structure.currentPhysicsState,
                 isTargetDisk = isTargetDisk
             };
         }
@@ -332,17 +326,35 @@ public class ReplayRecording
             };
         }
         
+        // Scene Props
+        var scenePropStates = Utilities.NewArray<ScenePropState>(SceneProps.Count);
+
+        for (int i = 0; i < SceneProps.Count; i++)
+        {
+            var sceneProp = SceneProps[i];
+            if (sceneProp == null) continue;
+            
+            scenePropStates[i] = new ScenePropState
+            {
+                position = sceneProp.transform.position,
+                rotation = sceneProp.transform.rotation
+            };
+        }
+        
         return new Frame
         {
             Structures = structureStates,
             Players = playerStates,
             Pedestals = pedestalStates,
-            Events = Events.ToArray()
+            SceneProps = scenePropStates,
+            Events = Events.ToArray(),
         };
     }
     
     public void SaveReplay(Frame[] frames, List<Marker> markers, string logPrefix, bool isBufferClip = false, Action<ReplayInfo, string> onSave = null)
     {
+        Main.DebugLog($"[{logPrefix}] Saving | Frames: {frames.Length} | Markers: {markers.Count}");
+        
         if (frames.Length == 0)
         {
             Main.instance.LoggerInstance.Warning($"{logPrefix} stopped, but no frames were captured. Replay was not saved.");
@@ -383,12 +395,14 @@ public class ReplayRecording
                 CustomMap = customMap,
                 FrameCount = frames.Length,
                 PedestalCount = Pedestals.Count,
+                ScenePropCount = SceneProps.Count,
                 MarkerCount = markers.Count,
                 AvgPing = pingCount > 0 ? pingSum / pingCount : -1,
                 MinPing = pingMin,
                 MaxPing = pingMax,
                 TargetFPS = (int)Main.instance.TargetRecordingFPS.SavedValue,
                 Structures = StructureInfos.ToArray(),
+                SceneProps = ScenePropInfos.ToArray(),
                 Guid = Guid.NewGuid().ToString()
             },
             Frames = frames
@@ -430,6 +444,8 @@ public class ReplayRecording
         replayInfo.Header.Title = ReplayFormatting.FormatReplayString(pattern, replayInfo.Header);
         
         Main.instance.LoggerInstance.Msg($"{logPrefix} finished ({frames.Length} frames, {duration:F2}s).");
+        
+        Main.DebugLog($"[{logPrefix}] Header | Scene: {recordingSceneName} | Duration: {duration:F2}s | Players: {replayInfo.Header.Players.Length} | Structures: {StructureInfos.Count}");
 
         string path = $"{ReplayFiles.replayFolder}/Replays/{ReplayFormatting.GetReplayName(replayInfo, isBufferClip)}";
         ReplayArchive.BuildReplayPackage(
@@ -475,10 +491,7 @@ public class ReplayRecording
             return false; 
         
         if (Structures.Contains(structure)) 
-            return false; 
-        
-        if (structure.name.StartsWith("Static Target") || structure.name.StartsWith("Moving Target")) 
-            return false; 
+            return false;
         
         Structures.Add(structure); 
         
@@ -493,15 +506,26 @@ public class ReplayRecording
             "LargeRock" => StructureType.LargeRock, 
             "SmallRock" => StructureType.SmallRock, 
             "BoulderBall" => StructureType.CagedBall, 
+            "WrappedWall" => StructureType.WrappedWall,
+            "PrisonedPillar" => StructureType.PrisonedPillar,
+            "DockedDisk" => StructureType.DockedDisk,
+            "CageCube" => StructureType.CageCube,
+            "StructureTarget" => StructureType.Target,
             _ => StructureType.Cube
         };
 
         if (type == StructureType.Ball && structure.transform.childCount >= 3 && structure.transform.GetChild(2).name == "Ballcage")
         {
             type = structure.GetComponent<Tetherball>() != null ? StructureType.TetheredCagedBall : StructureType.CagedBall;
-        } 
+        }
+
+        int? targetTier = null;
+        if (type == StructureType.Target)
+            targetTier = structure.baseStructureTier;
         
-        StructureInfos.Add(new StructureInfo { Type = type }); return true;
+        Main.DebugLog($"[Structure] Registered | {structure.ResourceName} | Type: {type}");
+        
+        StructureInfos.Add(new StructureInfo { Type = type, structureId = structure.structureID, targetDamage = targetTier }); return true;
     }
     
     public void SetupRecordingData()
@@ -511,6 +535,7 @@ public class ReplayRecording
         PlayerInfos.Clear();
         Structures.Clear();
         StructureInfos.Clear();
+        ScenePropInfos.Clear();
         Pedestals.Clear();
 
         recordingSceneName = Main.currentScene;
@@ -521,13 +546,30 @@ public class ReplayRecording
         foreach (var player in PlayerManager.instance.AllPlayers)
         {
             if (player == null) continue;
-
-            RecordedPlayers.Add(player);
-
-            MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player));
+            
+            Main.Recording.RegisterPlayer(player);
         }
 
         Pedestals.AddRange(Utilities.EnumerateMatchPedestals());
+
+        var fruits = GameObject.FindObjectsOfType<Fruit>();
+        foreach (var fruit in fruits)
+        {
+            ScenePropInfos.Add(new ScenePropInfo
+            {
+                type = ScenePropType.Fruit
+            });
+            
+            SceneProps.Add(fruit.gameObject);
+        }
+        
+        Main.DebugLog(
+              $"[Recording] Setup | Scene: {recordingSceneName} | " +
+              $"Players: {RecordedPlayers.Count} | " +
+              $"Structures: {StructureInfos.Count} | " +
+              $"Pedestals: {Pedestals.Count} | " +
+              $"Scene Props: {ScenePropInfos.Count}"
+        );
     }
 
     public int RegisterPlayer(Player player)
@@ -547,6 +589,8 @@ public class ReplayRecording
             RecordedPlayers.Add(player);
 
             index = newSlot;
+            
+            Main.DebugLog($"[Recording] New Player Slot | Id: {id} | Slot: {index}");
         }
         
         MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player));
@@ -571,26 +615,35 @@ public class ReplayRecording
 
         if (isBuffering)
             bufferMarkers.Enqueue(marker);
+        
+        Main.DebugLog($"[Marker] Added | {name} | Time: {time:F2} | Recording: {isRecording} | Buffering: {isBuffering}");
 
         return marker;
     }
 
     public void StartBuffering()
     {
+        isBuffering = true;
+        
         SetupRecordingData();
         replayBuffer.Clear();
         bufferMarkers.Clear();
-        isBuffering = true;
+        
+        Main.DebugLog($"[Buffer] Started | Duration: {Main.instance.ReplayBufferDuration.SavedValue}s");
     }
     
     public void SaveReplayBuffer()
     {
+        Main.DebugLog($"[Buffer] Saving | Frames:{replayBuffer.Count} | Markers: {bufferMarkers.Count}");
+        
         var frames = replayBuffer.ToArray();
         SaveReplay(frames, bufferMarkers.ToList(), "Replay Buffer", true, (info, path) => ReplayAPI.ReplaySavedInternal(info, true, path));
     }
     
     public void StopRecording()
     {
+        Main.DebugLog($"[Recording] Stopping | Frames: {Frames.Count} | Markers: {recordingMarkers.Count}");
+        
         isRecording = false;
         SaveReplay(Frames.ToArray(), recordingMarkers, "Recording", onSave: (info, path) => ReplayAPI.ReplaySavedInternal(info, false, path));
 
@@ -599,17 +652,20 @@ public class ReplayRecording
     
     public void StartRecording()
     {
+        isRecording = true;
+        
         SetupRecordingData();
         Frames.Clear();
         Events.Clear();
         recordingMarkers.Clear();
-        isRecording = true;
 
         if (recordingIcon != null)
             recordingIcon.color = Color.red;
         
         if ((bool)Main.instance.EnableHaptics.SavedValue)
             Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
+
+        Main.DebugLog($"[Recording] Started | Scene: {recordingSceneName} | Players: {RecordedPlayers.Count} | Structures: {Structures.Count}");
     }
 
     public void Reset()

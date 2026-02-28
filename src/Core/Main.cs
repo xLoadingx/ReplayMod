@@ -14,6 +14,7 @@ using ReplayMod.Replay;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.UI;
 using RumbleModdingAPI;
+using RumbleModdingAPI.RMAPI;
 using RumbleModUI;
 using RumbleModUIPlus;
 using UnityEngine;
@@ -27,6 +28,7 @@ using Main = ReplayMod.Core.Main;
 using Mod = RumbleModUIPlus.Mod;
 using Random = UnityEngine.Random;
 using Tags = RumbleModUIPlus.Tags;
+using Utilities = ReplayMod.Replay.Utilities;
 
 [assembly: MelonInfo(typeof(Main), BuildInfo.Name, BuildInfo.Version, BuildInfo.Author)]
 [assembly: MelonGame("Buckethead Entertainment", "RUMBLE")]
@@ -47,7 +49,7 @@ public class Main : MelonMod
     // Runtime
     public static Main instance;
     public Main() => instance = this;
-    public static string currentScene = "Loader";
+    public static string currentScene => Calls.Scene.GetSceneName();
 
     public static ReplayPlayback Playback;
     public static ReplayRecording Recording;
@@ -112,6 +114,7 @@ public class Main : MelonMod
     
     // Other
     public ModSetting<float> tableOffset = new();
+    public ModSetting<bool> enableDebug = new();
     public ModSettingFolder extensionsFolder;
     
     // ------------
@@ -120,8 +123,8 @@ public class Main : MelonMod
     {
         try
         {
-            if (position == default && Main.instance.head != null)
-                position = Main.instance.head.position;
+            if (position == default && instance.head != null)
+                position = instance.head.position;
 
             AudioManager.instance.Play(
                 ReplayCache.SFX["Call_Measurement_Failure"],
@@ -133,15 +136,21 @@ public class Main : MelonMod
         if (!string.IsNullOrEmpty(message))
             instance.LoggerInstance.Error(message);   
     }
+
+    public static void DebugLog(string message)
+    {
+        if ((bool)instance.enableDebug.SavedValue && !string.IsNullOrEmpty(message))
+            instance.LoggerInstance.Warning(message);
+    }
     
     // ----- Init -----
     
     public override void OnLateInitializeMelon()
     {
         UI.instance.UI_Initialized += OnUIInitialized;
-        Calls.onMapInitialized += OnMapInitialized;
+        Actions.onMapInitialized += (scene) => OnMapInitialized();
         
-        Calls.onRoundEnded += () =>
+        Actions.onRoundEnded += () =>
         {
             if (!(bool)EnableRoundEndMarker.SavedValue)
                 return;
@@ -149,7 +158,7 @@ public class Main : MelonMod
             Recording.AddMarker("core.roundEnded", new Color(0.7f, 0.6f, 0.85f));
         };
 
-        Calls.onMatchEnded += () =>
+        Actions.onMatchEnded += () =>
         {
             if ((bool)EnableMatchEndMarker.SavedValue)
                 Recording.AddMarker("core.matchEnded", Color.black);
@@ -161,6 +170,8 @@ public class Main : MelonMod
 
         Recording = new();
         Playback = new(Recording);
+
+        DebugLog("ReplayMod initialized");
     }
     
     private IEnumerator ListenForFlatLand()
@@ -177,11 +188,13 @@ public class Main : MelonMod
     
     public override void OnSceneWasLoaded(int buildIndex, string sceneName)
     {
-        currentScene = sceneName;
-
         if (currentScene == "Loader")
             return;
 
+        DebugLog($"Scene loaded: {sceneName}");
+        DebugLog($"Recording active before scene load: {Recording.isRecording}");
+        DebugLog($"Playback active before scene load: {Playback.isPlaying}");
+        
         if (Recording.isRecording)
             Recording.StopRecording();
 
@@ -199,7 +212,7 @@ public class Main : MelonMod
 
     public void OnMapInitialized()
     {
-        var recordingIcon = Calls.Create.NewText().GetComponent<TextMeshPro>();
+        var recordingIcon = Create.NewText().GetComponent<TextMeshPro>();
         recordingIcon.transform.SetParent(LocalPlayer.Controller.GetSubsystem<PlayerUI>().transform.GetChild(0));
         recordingIcon.name = "Replay Recording Icon";
         recordingIcon.color = new Color(0, 1, 0, 0);
@@ -281,8 +294,8 @@ public class Main : MelonMod
         {
             MatchHandler matchHandler = currentScene switch
             {
-                "Map1" => Calls.GameObjects.Map1.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
-                "Map0" => Calls.GameObjects.Map0.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
+                "Map1" => GameObjects.Map1.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
+                "Map0" => GameObjects.Map0.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
                 _ => null
             };
 
@@ -335,7 +348,7 @@ public class Main : MelonMod
             if (PhotonNetwork.CurrentRoom != null)
                 PhotonNetwork.CurrentRoom.isVisible = false;
             
-            Calls.GameObjects.Park.LOGIC.ParkInstance.GetGameObject().SetActive(false);
+            GameObjects.Park.LOGIC.ParkInstance.GetGameObject().SetActive(false);
             PhotonNetwork.LeaveRoom();
             
             yield return new WaitForSeconds(1f);
@@ -470,15 +483,17 @@ public class Main : MelonMod
         var otherFolder = replayMod.AddFolder("Other", "Miscellaneous settings.");
 
         tableOffset = replayMod.AddToList("Replay Table Height Offset", 0f, "Adjusts the vertical offset of the replay table in meters.\nUseful if the table feels too high or too low.", new Tags());
+        enableDebug = replayMod.AddToList("Enable Debug", false, 0, "Enables debug logs.\nIf something breaks, turn this on and wait for it to happen again.\nInclude your log when reporting bugs to ERROR.", new Tags());
         
         otherFolder.AddSetting(tableOffset);
+        otherFolder.AddSetting(enableDebug);
 
         ReplayBufferEnabled.SavedValueChanged += (obj, sender) =>
         {
-            if ((bool)ReplayBufferEnabled.SavedValue && !Recording.isBuffering)
+            if ((bool)ReplayBufferEnabled.Value && !Recording.isBuffering)
                 Recording.StartBuffering();
             
-            Recording.isBuffering = (bool)ReplayBufferEnabled.SavedValue;
+            Recording.isBuffering = (bool)ReplayBufferEnabled.Value;
         };
         
         var allowedBindings = new[] { "Toggle Recording", "Save Replay Buffer", "Add Marker", "None" };
@@ -519,16 +534,21 @@ public class Main : MelonMod
         ReplayTable.transform.localPosition = new Vector3(5.9506f, 1.3564f, 4.1906f);
         ReplayTable.transform.localRotation = Quaternion.Euler(270f, 121.5819f, 0f);
 
-        AssetBundle bundle = Calls.LoadAssetBundleFromStream(this, "ReplayMod.src.Core.replayobjects2");
+        using var stream = typeof(Main).Assembly.GetManifestResourceStream("ReplayMod.src.Core.replayobjects2");
+        byte[] bundleData = new byte[stream.Length];
+        stream.Read(bundleData, 0, bundleData.Length);
 
+        AssetBundle bundle = AssetBundle.LoadFromMemory(bundleData);
+        
         GameObject table = GameObject.Instantiate(bundle.LoadAsset<GameObject>("Table"), ReplayTable.transform);
 
         table.name = "Table";
         table.transform.localScale *= 0.5f;
         table.transform.localRotation = Quaternion.identity;
 
-        Material tableMat = new Material(Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Gearmarket.Stallframe.GetGameObject().GetComponent<Renderer>().material);
+        Material tableMat = new Material(GameObjects.Gym.INTERACTABLES.Gearmarket.Stallframe.GetGameObject().GetComponent<Renderer>().material);
         tableMat.SetTexture("_Albedo", bundle.LoadAsset<Texture2D>("Texture"));
+        tableMat.SetTexture("_Lighting_data", null);
         table.GetComponent<Renderer>().material = tableMat;
 
         var tableFloat = ReplayTable.AddComponent<TableFloat>();
@@ -542,7 +562,7 @@ public class Main : MelonMod
             table.GetComponent<Renderer>().lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
 
         GameObject levitateVFX = GameObject.Instantiate(
-            Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Parkboard.PlayerRelocationTrigger.StandHere.GetGameObject(),
+            GameObjects.Gym.INTERACTABLES.Parkboard.PlayerRelocationTrigger.StandHere.GetGameObject(),
             ReplayTable.transform
         );
 
@@ -552,7 +572,7 @@ public class Main : MelonMod
         levitateVFX.transform.localScale = Vector3.one * 0.8f;
 
         GameObject Next = GameObject.Instantiate(
-            Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Telephone20REDUXspecialedition.FriendScreen.FriendScrollBar.ScrollUpButton.GetGameObject(),
+            GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.FriendScrollBar.ScrollUpButton.GetGameObject(),
             ReplayTable.transform
         );
 
@@ -578,7 +598,7 @@ public class Main : MelonMod
         previousButton.OnPressed.RemoveAllListeners();
         previousButton.OnPressed.AddListener((UnityAction)(() => { ReplayFiles.PreviousReplay(); }));
 
-        var replayNameText = Calls.Create.NewText("No Replay Selected", 5f, new Color(0.102f, 0.051f, 0.0275f), Vector3.zero, Quaternion.identity);
+        var replayNameText = Create.NewText("No Replay Selected", 5f, new Color(0.102f, 0.051f, 0.0275f), Vector3.zero, Quaternion.identity);
         replayNameText.transform.SetParent(ReplayTable.transform);
 
         replayNameText.name = "Replay Name";
@@ -586,7 +606,7 @@ public class Main : MelonMod
         replayNameText.transform.localPosition = new Vector3(0.446f, -0.0204f, -0.1297f);
         replayNameText.transform.localRotation = Quaternion.Euler(0, 249.3179f, 270f);
 
-        var indexText = Calls.Create.NewText("(0 / 0)", 5f, new Color(0.102f, 0.051f, 0.0275f), Vector3.zero, Quaternion.identity);
+        var indexText = Create.NewText("(0 / 0)", 5f, new Color(0.102f, 0.051f, 0.0275f), Vector3.zero, Quaternion.identity);
         indexText.transform.SetParent(ReplayTable.transform);
 
         indexText.name = "Replay Index";
@@ -594,7 +614,7 @@ public class Main : MelonMod
         indexText.transform.localPosition = new Vector3(0.4604f, -0.0204f, -0.1697f);
         indexText.transform.localRotation = Quaternion.Euler(0, 249.3179f, 270f);
 
-        var metadataText = Calls.Create.NewText("", 5f, Color.white, Vector3.zero, Quaternion.identity);
+        var metadataText = Create.NewText("", 5f, Color.white, Vector3.zero, Quaternion.identity);
 
         metadataText.name = "Metadata Text";
         metadataText.transform.position = new Vector3(5.9575f, 1.8514f, 4.2102f);
@@ -614,7 +634,7 @@ public class Main : MelonMod
 
         GameObject.DontDestroyOnLoad(metadataText);
 
-        var loadReplayButton = GameObject.Instantiate(Calls.GameObjects.Gym.LOGIC.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(), ReplayTable.transform);
+        var loadReplayButton = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(), ReplayTable.transform);
 
         loadReplayButton.name = "Load Replay";
         loadReplayButton.transform.localPosition = new Vector3(0.5267f, -0.0131f, -0.1956f);
@@ -727,7 +747,7 @@ public class Main : MelonMod
             100f
         );
 
-        GameObject heisenhowuserText = Calls.Create.NewText("Heisenhouwser", 1f, Color.white, Vector3.zero, Quaternion.identity);
+        GameObject heisenhowuserText = Create.NewText("Heisenhouwser", 1f, Color.white, Vector3.zero, Quaternion.identity);
 
         heisenhowuserText.transform.SetParent(ReplayTable.transform);
         heisenhowuserText.name = "HeisenhouswerLogoText";
@@ -766,15 +786,20 @@ public class Main : MelonMod
 
         loadReplaySprite.transform.localPosition = new Vector3(0, 0.012f, 0);
         loadReplaySprite.transform.localRotation = Quaternion.Euler(270, 90, 0);
-        loadReplaySprite.transform.localScale = new Vector3(0.0015f, 0.003f, 0.003f);
+        loadReplaySprite.transform.localScale = new Vector3(0.025f, 0.05f, 0.05f);
 
-        var loadReplaySpriteComp = loadReplaySprite.AddComponent<SpriteRenderer>();
-        loadReplaySpriteComp.sprite = nextButton.transform.GetChild(3).GetChild(0).GetComponent<Image>().sprite;
-        loadReplaySpriteComp.color = new Color(0.4047f, 0.3279f, 0f);
+        var nextButtonRenderer = nextButton.transform.GetChild(3).GetComponent<MeshRenderer>();
+        var nextButtonFilter = nextButton.transform.GetChild(3).GetComponent<MeshFilter>();
+
+        var loadReplayFilter = loadReplaySprite.AddComponent<MeshFilter>();
+        var loadReplayRenderer = loadReplaySprite.AddComponent<MeshRenderer>();
+
+        loadReplayFilter.sharedMesh = nextButtonFilter.sharedMesh;
+        loadReplayRenderer.material = nextButtonRenderer.material;
 
         // Playback Controls
 
-        var playbackControls = GameObject.Instantiate(Calls.GameObjects.Gym.LOGIC.School.LogoSlab.NotificationSlab.SlabbuddyInfovariant.InfoForm.GetGameObject());
+        var playbackControls = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.Notifications.NotificationSlabOther.NotificationSlab.SlabbuddyInfovariant.InfoForm.GetGameObject());
         playbackControls.name = "Playback Controls";
         playbackControls.transform.localScale = Vector3.one;
 
@@ -795,7 +820,7 @@ public class Main : MelonMod
         for (int i = 0; i < playbackControls.transform.GetChild(1).childCount; i++)
             GameObject.Destroy(playbackControls.transform.GetChild(1).GetChild(i).gameObject);
 
-        var timeline = GameObject.Instantiate(Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Gearmarket.Itemhighlightwindow.StatusBar.GetGameObject(),
+        var timeline = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.StatusBar.GetGameObject(),
             playbackControls.transform.GetChild(1));
         Material timelineMaterial = timeline.GetComponent<MeshRenderer>().material;
         timelineMaterial.SetFloat("_Has_BP_Requirement", 1f);
@@ -817,10 +842,10 @@ public class Main : MelonMod
 
         colliderObj.AddComponent<ReplaySettings.TimelineScrubber>();
 
-        var currentDuration = Calls.Create.NewText(":3", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
-        var totalDuration = Calls.Create.NewText(":3", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
-        var playbackTitle = Calls.Create.NewText("Colon Three", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
-        var playbackSpeedText = Calls.Create.NewText("Vewy Fast!", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
+        var currentDuration = Create.NewText(":3", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
+        var totalDuration = Create.NewText(":3", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
+        var playbackTitle = Create.NewText("Colon Three", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
+        var playbackSpeedText = Create.NewText("Vewy Fast!", 1f, Color.white, Vector3.zero, Quaternion.identity).GetComponent<TextMeshPro>();
 
         currentDuration.transform.SetParent(playbackControls.transform.GetChild(1));
         currentDuration.name = "Current Duration";
@@ -853,7 +878,7 @@ public class Main : MelonMod
         playbackSpeedText.transform.localRotation = Quaternion.identity;
         playbackSpeedText.horizontalAlignment = HorizontalAlignmentOptions.Center;
 
-        var friendScrollBar = Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Telephone20REDUXspecialedition.FriendScreen.FriendScrollBar.GetGameObject();
+        var friendScrollBar = GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.FriendScrollBar.GetGameObject();
 
         var p5x = GameObject.Instantiate(friendScrollBar.transform.GetChild(0).gameObject, playbackControls.transform.GetChild(1));
         var np5x = GameObject.Instantiate(friendScrollBar.transform.GetChild(1).gameObject, playbackControls.transform.GetChild(1));
@@ -862,18 +887,12 @@ public class Main : MelonMod
         var playButton = GameObject.Instantiate(friendScrollBar.transform.GetChild(0).gameObject, playbackControls.transform.GetChild(1));
 
         var speedUpTexture = bundle.LoadAsset<Texture2D>("SpeedUp");
-        var speedUpSprite = Sprite.Create(
-            speedUpTexture,
-            new Rect(0, 0, speedUpTexture.width, speedUpTexture.height),
-            new Vector3(0.5f, 0.5f),
-            100f
-        );
 
         var compp5x = p5x.transform.GetChild(0).GetComponent<InteractionButton>();
         compp5x.enabled = true;
         compp5x.onPressed.RemoveAllListeners();
         compp5x.onPressed.AddListener((UnityAction)(() => { Playback.AddPlaybackSpeed(0.1f); }));
-        compp5x.transform.GetChild(3).GetChild(0).GetComponent<Image>().sprite = speedUpSprite;
+        compp5x.transform.GetChild(3).GetComponent<MeshRenderer>().material.SetTexture("_Texture", speedUpTexture);
 
         p5x.name = "+0.1 Speed";
         p5x.transform.localScale = Vector3.one * 1.8f;
@@ -884,7 +903,7 @@ public class Main : MelonMod
         compnp5x.enabled = true;
         compnp5x.onPressed.RemoveAllListeners();
         compnp5x.onPressed.AddListener((UnityAction)(() => { Playback.AddPlaybackSpeed(-0.1f); }));
-        compnp5x.transform.GetChild(3).GetChild(0).GetComponent<Image>().sprite = speedUpSprite;
+        compnp5x.transform.GetChild(3).GetComponent<MeshRenderer>().material.SetTexture("_Texture", speedUpTexture);
 
         np5x.name = "-0.1 Speed";
         np5x.transform.localScale = Vector3.one * 1.8f;
@@ -915,8 +934,10 @@ public class Main : MelonMod
         compplay.enabled = true;
         compplay.onPressed.RemoveAllListeners();
         
-        ReplayPlaybackControls.playButtonSprite = compplay.transform.GetChild(3).GetChild(0).GetComponent<Image>();
-        ReplayPlaybackControls.playSprite = ReplayPlaybackControls.playButtonSprite.sprite;
+        ReplayPlaybackControls.playButtonSprite = compplay.transform.GetChild(3)
+            .GetComponent<MeshRenderer>();
+        ReplayPlaybackControls.playSprite = ReplayPlaybackControls.playButtonSprite.material
+            .GetTexture("_Texture") as Texture2D;
         
         compplay.onPressed.AddListener((UnityAction)(() => { Playback.TogglePlayback(Playback.isPaused); }));
 
@@ -926,17 +947,12 @@ public class Main : MelonMod
         playButton.transform.localRotation = Quaternion.Euler(270, 0, 0);
 
         var textureP = bundle.LoadAsset<Texture2D>("Pause");
-        ReplayPlaybackControls.pauseSprite = Sprite.Create(
-            textureP,
-            new Rect(0, 0, textureP.width, textureP.height),
-            new Vector3(0.5f, 0.5f),
-            100f
-        );
+        ReplayPlaybackControls.pauseSprite = textureP;
 
-        ReplayPlaybackControls.playButtonSprite.sprite = ReplayPlaybackControls.pauseSprite;
+        ReplayPlaybackControls.playButtonSprite.material.SetTexture("_Texture", ReplayPlaybackControls.pauseSprite);
         ReplayPlaybackControls.playButtonSprite.transform.localScale = Vector3.one * 0.8f;
 
-        var stopReplayButton = GameObject.Instantiate(Calls.GameObjects.Gym.LOGIC.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(),
+        var stopReplayButton = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(),
             playbackControls.transform.GetChild(1));
 
         var exitSceneButton = GameObject.Instantiate(stopReplayButton, playbackControls.transform.GetChild(1));
@@ -1001,8 +1017,8 @@ public class Main : MelonMod
         replaySettingsPanel.transform.localRotation = Quaternion.Euler(34.4376f, 90, 90);
         
         var povCameraButton = GameObject.Instantiate(
-            Calls.GameObjects.Gym.LOGIC.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
-            replaySettingsPanel.transform.GetChild(1)
+            GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
+            replaySettingsPanel.transform.GetChild(0)
         );
 
         povCameraButton.name = "POV Button";
@@ -1018,7 +1034,7 @@ public class Main : MelonMod
         povCameraButtonComp.onPressed.AddListener((UnityAction)(() =>
         {
             
-            if (Calls.GameObjects.DDOL.GameInstance.Initializable.RecordingCamera.GetGameObject().GetComponent<Camera>().enabled)
+            if (GameObjects.DDOL.GameInstance.Initializable.RecordingCamera.GetGameObject().GetComponent<Camera>().enabled)
             {
                 MelonCoroutines.Start(ReplaySettings.SelectPlayer(selectedPlayer =>
                 {
@@ -1032,8 +1048,8 @@ public class Main : MelonMod
         }));
 
         var hideLocalPlayerButton = GameObject.Instantiate(
-            Calls.GameObjects.Gym.LOGIC.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(), 
-            replaySettingsPanel.transform.GetChild(1)
+            GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(), 
+            replaySettingsPanel.transform.GetChild(0)
         );
 
         hideLocalPlayerButton.name = "Hide Local Player Toggle";
@@ -1076,8 +1092,8 @@ public class Main : MelonMod
         );
         
         var openControlsButton = GameObject.Instantiate(
-            Calls.GameObjects.Gym.LOGIC.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
-            replaySettingsPanel.transform.GetChild(1)
+            GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
+            replaySettingsPanel.transform.GetChild(0)
         );
 
         openControlsButton.name = "Open Controls Toggle";
@@ -1097,7 +1113,7 @@ public class Main : MelonMod
                 ReplayPlaybackControls.Open();
         }));
 
-        var openControlsText = Calls.Create.NewText().GetComponent<TextMeshPro>();
+        var openControlsText = Create.NewText().GetComponent<TextMeshPro>();
         openControlsText.name = "Open Controls Text";
         openControlsText.transform.SetParent(openControlsComp.transform);
         openControlsText.transform.localPosition = new Vector3(0.0106f, 0.0117f, -0.1206f);
@@ -1108,14 +1124,14 @@ public class Main : MelonMod
         openControlsText.color = Color.white;
         openControlsText.ForceMeshUpdate();
 
-        var slideOutPanel = GameObject.Instantiate(bundle.LoadAsset<GameObject>("SlideOutPlayerSelector"), replaySettingsPanel.transform.GetChild(1));
+        var slideOutPanel = GameObject.Instantiate(bundle.LoadAsset<GameObject>("SlideOutPlayerSelector"), replaySettingsPanel.transform.GetChild(0));
 
         slideOutPanel.name = "Player Selector Panel";
         slideOutPanel.transform.localScale = Vector3.one * 2.5f;
         slideOutPanel.transform.localPosition = new Vector3(0.1996f, 0.5273f, 0.16f);
         slideOutPanel.SetActive(false);
 
-        var slideOutText = Calls.Create.NewText();
+        var slideOutText = Create.NewText();
 
         slideOutText.transform.SetParent(slideOutPanel.transform);
         slideOutText.transform.localPosition = new Vector3(0.0022f, 0.072f, -0.004f);
@@ -1136,7 +1152,7 @@ public class Main : MelonMod
             int index = i;
             
             var playerTag = GameObject.Instantiate(
-                Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject(),
+                GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject(),
                 slideOutPanel.transform
             );
 
@@ -1157,7 +1173,8 @@ public class Main : MelonMod
         nextPageButton.transform.localPosition = new Vector3(0.0822f, -0.4184f, 0.0371f);
         nextPageButton.transform.localRotation = Quaternion.Euler(270, 0, 0);
         nextPageButton.transform.localScale = Vector3.one * 0.8f;
-        nextPageButton.transform.GetChild(0).GetChild(3).GetChild(0).GetComponent<Image>().sprite = ReplayPlaybackControls.playSprite;
+        nextPageButton.transform.GetChild(0).GetChild(3).GetComponent<MeshRenderer>().material
+            .SetTexture("_Texture", ReplayPlaybackControls.playSprite);
 
         var nextPageButtonComp = nextPageButton.transform.GetChild(0).GetComponent<InteractionButton>();
         nextPageButtonComp.enabled = true;
@@ -1172,7 +1189,8 @@ public class Main : MelonMod
         previousPageButton.transform.localPosition = new Vector3(-0.0822f, -0.4184f, 0.0371f);
         previousPageButton.transform.localRotation = Quaternion.Euler(90, 180, 0);
         previousPageButton.transform.localScale = Vector3.one * 0.8f;
-        previousPageButton.transform.GetChild(0).GetChild(3).GetChild(0).GetComponent<Image>().sprite = ReplayPlaybackControls.playSprite;
+        previousPageButton.transform.GetChild(0).GetChild(3).GetComponent<MeshRenderer>().material
+            .SetTexture("_Texture", ReplayPlaybackControls.playSprite);
 
         var previousPageButtonComp = previousPageButton.transform.GetChild(0).GetComponent<InteractionButton>();
         previousPageButtonComp.enabled = true;
@@ -1182,7 +1200,7 @@ public class Main : MelonMod
             ReplaySettings.SelectPlayerPage(ReplaySettings.currentPlayerPage - 1);
         }));
 
-        var pageNumberText = Calls.Create.NewText();
+        var pageNumberText = Create.NewText();
         
         pageNumberText.transform.SetParent(slideOutPanel.transform);
         pageNumberText.transform.localPosition = new Vector3(0f, -0.4152f, -0.0062f);
@@ -1196,30 +1214,30 @@ public class Main : MelonMod
         pageNumberTextComp.horizontalAlignment = HorizontalAlignmentOptions.Center;
         pageNumberTextComp.ForceMeshUpdate();
         
-        var timelineRS = GameObject.Instantiate(timeline, replaySettingsPanel.transform.GetChild(1));
+        var timelineRS = GameObject.Instantiate(timeline, replaySettingsPanel.transform.GetChild(0));
         timelineRS.name = "Timeline";
         timelineRS.layer = LayerMask.NameToLayer("Default");
         timelineRS.transform.localPosition = new Vector3(0, -0.2726f, 0);
         timelineRS.transform.localScale = new Vector3(0.9346f, 0.0529f, 1.9291f);
         timelineRS.transform.localRotation = Quaternion.identity;
         
-        var durationRS = GameObject.Instantiate(totalDuration, replaySettingsPanel.transform.GetChild(1));
+        var durationRS = GameObject.Instantiate(totalDuration, replaySettingsPanel.transform.GetChild(0));
         durationRS.name = "TotalDuration";
         durationRS.gameObject.layer = LayerMask.NameToLayer("Default");
         durationRS.transform.localPosition = new Vector3(0.2265f, -0.1898f, 0);
         
-        var replayNameTitle = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsPanel.transform.GetChild(1));
+        var replayNameTitle = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsPanel.transform.GetChild(0));
         replayNameTitle.transform.localPosition = new Vector3(0, 0.6316f, 0);
         replayNameTitle.name = "Replay Title";
         replayNameTitle.layer = LayerMask.NameToLayer("Default");
         
-        var dateText = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsPanel.transform.GetChild(1));
+        var dateText = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsPanel.transform.GetChild(0));
         dateText.transform.localPosition = new Vector3(0, 0.4989f, 0);
         dateText.transform.localScale = Vector3.one * 0.7f;
         dateText.name = "Date";
         dateText.layer = LayerMask.NameToLayer("Default");
 
-        var deleteButton = GameObject.Instantiate(crystalizeButton, replaySettingsPanel.transform.GetChild(1));
+        var deleteButton = GameObject.Instantiate(crystalizeButton, replaySettingsPanel.transform.GetChild(0));
         deleteButton.name = "DeleteReplay";
         deleteButton.transform.localPosition = new Vector3(0.21f, -0.5582f, -0.0138f);
         deleteButton.transform.localRotation = Quaternion.identity;
@@ -1269,7 +1287,7 @@ public class Main : MelonMod
         dateComp.fontSizeMin = 0.7f;
         dateComp.fontSizeMax = 1.2f;
 
-        var renameInstructions = GameObject.Instantiate(dateText, replaySettingsPanel.transform.GetChild(1));
+        var renameInstructions = GameObject.Instantiate(dateText, replaySettingsPanel.transform.GetChild(0));
         renameInstructions.name = "Rename Instructions";
         renameInstructions.transform.localPosition = new Vector3(0, 0.3156f, 0);
         renameInstructions.transform.localScale = Vector3.one;
@@ -1287,7 +1305,7 @@ public class Main : MelonMod
         var deleteReplayTextComp = deleteReplayText.GetComponent<TextMeshPro>();
         deleteReplayTextComp.text = "<#cc1b1b>DELETE REPLAY";
         
-        var copyPathButton = GameObject.Instantiate(deleteButton, replaySettingsPanel.transform.GetChild(1));
+        var copyPathButton = GameObject.Instantiate(deleteButton, replaySettingsPanel.transform.GetChild(0));
         copyPathButton.name = "CopyPathButton";
         copyPathButton.transform.localPosition = new Vector3(-0.0337f, -0.5589f, -0.0138f);
         copyPathButton.transform.localRotation = Quaternion.identity;
@@ -1320,7 +1338,7 @@ public class Main : MelonMod
         
         replaySettings = replaySettingsPanel.AddComponent<ReplaySettings>();
         
-        var renameButton = GameObject.Instantiate(deleteButton, replaySettingsPanel.transform.GetChild(1));
+        var renameButton = GameObject.Instantiate(deleteButton, replaySettingsPanel.transform.GetChild(0));
         renameButton.name = "RenameButton";
         renameButton.transform.localPosition = new Vector3(-0.2817f, -0.556f, -0.0138f);
         renameButton.transform.localRotation = Quaternion.identity;
@@ -1439,6 +1457,10 @@ public class Main : MelonMod
 
     public void LoadSelectedReplay()
     {
+        DebugLog(
+            $"LoadReplay | Current:{currentScene} | Target:{ReplayFiles.currentHeader?.Scene} | Path:{ReplayFiles.explorer.CurrentReplayPath}"
+        );
+        
         if (ReplayFiles.explorer.currentIndex == -1)
         {
             ReplayError("Could not find file.");
@@ -1459,6 +1481,10 @@ public class Main : MelonMod
 
         bool isCustomMap = targetScene is "Map0" or "Map1" && !string.IsNullOrWhiteSpace(ReplayFiles.currentHeader.CustomMap);
         bool isRawMapData = !string.IsNullOrWhiteSpace(ReplayFiles.currentHeader.CustomMap) && ReplayFiles.currentHeader.CustomMap.Split('|').Length > 15;
+        
+        DebugLog(
+            $"SwitchingScene:{switchingScene} | Custom:{isCustomMap} | RawMap:{isRawMapData}"
+        );
 
         GameObject replayCustomMap = null;
 
@@ -1512,7 +1538,7 @@ public class Main : MelonMod
 
             if (sceneIndex == 2)
             {
-                var parkboard = Calls.GameObjects.Gym.LOGIC.Heinhouserproducts.Parkboard.
+                var parkboard = GameObjects.Gym.INTERACTABLES.Parkboard.
                     GetGameObject().
                     GetComponent<ParkBoardGymVariant>();
 
@@ -1533,18 +1559,18 @@ public class Main : MelonMod
                         {
                             case "Map0":
                             {
-                                Calls.GameObjects.Map0.Logic.MatchHandler.GetGameObject().SetActive(false);
+                                GameObjects.Map0.Logic.MatchHandler.GetGameObject().SetActive(false);
                                 break;
                             }
                             case "Map1":
                             {
-                                Calls.GameObjects.Map1.Logic.MatchHandler.GetGameObject().SetActive(false);
-                                Calls.GameObjects.Map1.Logic.SceneProcessors.GetGameObject().SetActive(false);
+                                GameObjects.Map1.Logic.MatchHandler.GetGameObject().SetActive(false);
+                                GameObjects.Map1.Logic.SceneProcessors.GetGameObject().SetActive(false);
                                 break;
                             }
                             case "Park":
                             {
-                                Calls.GameObjects.Park.LOGIC.ParkInstance
+                                GameObjects.Park.LOGIC.ParkInstance
                                     .GetGameObject()
                                     .SetActive(false);
                                 break;
@@ -1576,11 +1602,11 @@ public class Main : MelonMod
                             }
                             
                             if (targetScene == "Map0")
-                                Calls.GameObjects.Map0.Map0production
+                                GameObjects.Map0.Scene
                                     .GetGameObject()
                                     .SetActive(false);
                             else if (targetScene == "Map1")
-                                Calls.GameObjects.Map1.Map1production
+                                GameObjects.Map1.Scene
                                     .GetGameObject()
                                     .SetActive(false);
                         }
@@ -1886,6 +1912,8 @@ public class Main : MelonMod
         {
             if (action.Equals("None", StringComparison.OrdinalIgnoreCase))
                 return;
+            
+            DebugLog($"Controller Action | {(isLeft ? "Left" : "Right")} | {action}");
             
             switch (action)
             {

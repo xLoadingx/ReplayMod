@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using Il2CppPhoton.Pun;
+using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Scaling;
 using Newtonsoft.Json;
@@ -36,6 +37,7 @@ public class ReplaySerializer
 
         public int FrameCount;
         public int PedestalCount;
+        public int ScenePropCount;
         public int MarkerCount;
         public int AvgPing;
         public int MaxPing;
@@ -44,6 +46,7 @@ public class ReplaySerializer
 
         public PlayerInfo[] Players;
         public StructureInfo[] Structures;
+        public ScenePropInfo[] SceneProps;
         public Marker[] Markers;
 
         public string Guid;
@@ -63,7 +66,7 @@ public class ReplaySerializer
 
     static bool FloatChanged(float a, float b)
     {
-        return Mathf.Abs(a - b) < EPS;
+        return Mathf.Abs(a - b) > EPS;
     }
 
     // ----- Field-based diffs -----
@@ -94,11 +97,6 @@ public class ReplaySerializer
         WriteIf(
             prev.active != curr.active,
             () => w.Write(StructureField.active, curr.active)
-        );
-        
-        WriteIf(
-            prev.grounded != curr.grounded,
-            () => w.Write(StructureField.grounded, curr.grounded)
         );
 
         WriteIf(
@@ -283,6 +281,23 @@ public class ReplaySerializer
         return (int)(w.BaseStream.Position - start);
     }
 
+    static int WriteScenePropDiff(BinaryWriter w, ScenePropState prev, ScenePropState curr)
+    {
+        long start = w.BaseStream.Position;
+
+        WriteIf(
+            PosChanged(prev.position, curr.position),
+            () => w.Write(ScenePropField.position, curr.position)
+        );
+
+        WriteIf(
+            RotChanged(prev.rotation, curr.rotation),
+            () => w.Write(ScenePropField.rotation, curr.rotation)
+        );
+        
+        return (int)(w.BaseStream.Position - start);
+    }
+
     static int WriteEvent(BinaryWriter w, EventChunk e)
     {
         long start = w.BaseStream.Position;
@@ -322,6 +337,11 @@ public class ReplaySerializer
             () => w.Write(EventField.fxType, (byte)e.fxType)
         );
 
+        WriteIf(
+            e.structureId != -1,
+            () => w.Write(EventField.structureId, e.structureId)
+        );
+
         return (int)(w.BaseStream.Position - start);
     }
     
@@ -337,6 +357,7 @@ public class ReplaySerializer
         StructureState[] lastStructureFrame = null;
         PlayerState[] lastPlayerFrame = null;
         PedestalState[] lastPedestalFrame = null;
+        ScenePropState[] lastScenePropFrame = null;
         
         int total = replay.Frames.Length;
         int lastLoggedPercent = -1;
@@ -357,10 +378,12 @@ public class ReplaySerializer
             int structureCount = replay.Header.Structures.Length;
             int playerCount = replay.Header.Players.Length;
             int pedestalCount = replay.Header.PedestalCount;
+            int scenePropCount = replay.Header.ScenePropCount;
 
             lastStructureFrame ??= Utilities.NewArray<StructureState>(structureCount);
             lastPlayerFrame ??= Utilities.NewArray<PlayerState>(playerCount);
             lastPedestalFrame ??= Utilities.NewArray<PedestalState>(pedestalCount);
+            lastScenePropFrame ??= Utilities.NewArray<ScenePropState>(scenePropCount);
 
             // Structures
 
@@ -397,7 +420,7 @@ public class ReplaySerializer
                     entriesBw.BaseStream.Position = headerPos;
                 }
 
-                lastStructureFrame[i] = curr;
+                lastStructureFrame[j] = curr;
             }
 
             // Players
@@ -438,6 +461,8 @@ public class ReplaySerializer
                 lastPlayerFrame[j] = curr;
             }
 
+            // Pedestals
+            
             for (int j = 0; j < pedestalCount; j++)
             {
                 if (j >= f.Pedestals.Length || j >= lastPedestalFrame.Length)
@@ -448,7 +473,7 @@ public class ReplaySerializer
 
                 long headerPos = entriesBw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.StructureState);
+                entriesBw.Write((byte)ChunkType.PedestalState);
                 entriesBw.Write(j);
 
                 long sizePos = entriesBw.BaseStream.Position;
@@ -473,12 +498,52 @@ public class ReplaySerializer
 
                 lastPedestalFrame[j] = curr;
             }
+            
+            // Scene Props
+
+            for (int j = 0; j < scenePropCount; j++)
+            {
+                if (j >= f.SceneProps.Length || j >= lastScenePropFrame.Length)
+                    continue;
+
+                var curr = f.SceneProps[j];
+                var prev = lastScenePropFrame[j];
+                
+                long headerPos = entriesBw.BaseStream.Position;
+                
+                entriesBw.Write((byte)ChunkType.ScenePropState);
+                entriesBw.Write(j);
+                
+                long sizePos = entriesBw.BaseStream.Position;
+                entriesBw.Write(0);
+
+                int written = WriteScenePropDiff(entriesBw, prev, curr);
+
+                if (written > 0)
+                {
+                    long end = entriesBw.BaseStream.Position;
+                    
+                    entriesBw.BaseStream.Position = sizePos;
+                    entriesBw.Write(written);
+                    entriesBw.BaseStream.Position = end;
+                    
+                    entryCount++;
+                }
+                else
+                {
+                    entriesBw.BaseStream.Position = headerPos;
+                }
+                
+                lastScenePropFrame[j] = curr;
+            }
+            
+            // Events
 
             for (int j = 0; j < f.Events.Length; j++)
             {
                 long headerPos = entriesBw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.StructureState);
+                entriesBw.Write((byte)ChunkType.Event);
                 entriesBw.Write(j);
 
                 long sizePos = entriesBw.BaseStream.Position;
@@ -502,6 +567,8 @@ public class ReplaySerializer
                 }
             }
 
+            // Extensions
+            
             foreach (var ext in ReplayAPI.Extensions)
             {
                 if (!(bool)ext.Enabled.SavedValue)
@@ -516,6 +583,8 @@ public class ReplaySerializer
                 ext.OnWriteFrame(writer, f);
             }
 
+            // ------------
+            
             frameBw.Write(entryCount);
             frameBw.Write(entriesMs.ToArray());
 
@@ -589,7 +658,8 @@ public class ReplaySerializer
             header.FrameCount,
             header.Structures.Length,
             header.Players.Length,
-            header.PedestalCount
+            header.PedestalCount,
+            header.ScenePropCount
         );
 
         return replayInfo;
@@ -601,7 +671,8 @@ public class ReplaySerializer
         int frameCount, 
         int structureCount, 
         int playerCount, 
-        int pedestalCount
+        int pedestalCount,
+        int scenePropCount
     )
     {
         Frame[] frames = new Frame[frameCount];
@@ -609,6 +680,7 @@ public class ReplaySerializer
         StructureState[] lastStructures = Utilities.NewArray<StructureState>(structureCount);
         PlayerState[] lastPlayers = Utilities.NewArray<PlayerState>(playerCount);
         PedestalState[] lastPedestals = Utilities.NewArray<PedestalState>(pedestalCount);
+        ScenePropState[] lastSceneProps = Utilities.NewArray<ScenePropState>(scenePropCount);
         
         for (int f = 0; f < frameCount; f++)
         {
@@ -622,6 +694,7 @@ public class ReplaySerializer
             frame.Structures = Utilities.NewArray(structureCount, lastStructures);
             frame.Players = Utilities.NewArray(playerCount, lastPlayers);
             frame.Pedestals = Utilities.NewArray(pedestalCount, lastPedestals);
+            frame.SceneProps = Utilities.NewArray(scenePropCount, lastSceneProps);
             var events = new List<EventChunk>();
             
             int entryCount = br.ReadInt32();
@@ -661,6 +734,14 @@ public class ReplaySerializer
                     {
                         var evt = ReadEventChunk(br);
                         events.Add(evt);
+                        break;
+                    }
+
+                    case ChunkType.ScenePropState:
+                    {
+                        var s = ReadScenePropChunk(br, lastSceneProps[index].Clone());
+                        frame.SceneProps[index] = s;
+                        lastSceneProps[index] = s;
                         break;
                     }
 
@@ -819,11 +900,10 @@ public class ReplaySerializer
                     case StructureField.position: s.position = r.ReadVector3(); break;
                     case StructureField.rotation: s.rotation = r.ReadQuaternion(); break;
                     case StructureField.active: s.active = r.ReadBoolean(); break;
-                    case StructureField.grounded: s.grounded = r.ReadBoolean(); break;
                     case StructureField.isFlicked: s.isFlicked = r.ReadBoolean(); break;
                     case StructureField.isLeftHeld: s.isLeftHeld = r.ReadBoolean(); break;
                     case StructureField.isRightHeld: s.isRightHeld = r.ReadBoolean(); break;
-                    case StructureField.currentState: s.currentState = (StructureStateType)r.ReadByte(); break;
+                    case StructureField.currentState: s.currentState = (Structure.PhysicsState)r.ReadByte(); break;
                     case StructureField.isTargetDisk: s.isTargetDisk = r.ReadBoolean(); break;
                 }
             }
@@ -862,6 +942,23 @@ public class ReplaySerializer
                     case EventField.playerIndex: e.playerIndex = r.ReadInt32(); break;
                     case EventField.damage: e.damage = r.ReadInt32(); break;
                     case EventField.fxType: e.fxType = (FXOneShotType)r.ReadByte(); break;
+                    case EventField.structureId: e.structureId = r.ReadInt32(); break;
+                }
+            }
+        );
+    }
+
+    static ScenePropState ReadScenePropChunk(BinaryReader br, ScenePropState baseState)
+    {
+        return ReadChunk<ScenePropState, ScenePropField>(
+            br,
+            () => baseState,
+            (s, id, size, r) =>
+            {
+                switch (id)
+                {
+                    case ScenePropField.position: s.position = r.ReadVector3(); break;
+                    case ScenePropField.rotation: s.rotation = r.ReadQuaternion(); break;
                 }
             }
         );
@@ -883,6 +980,7 @@ public class Frame
     public PlayerState[] Players;
     public PedestalState[] Pedestals;
     public EventChunk[] Events;
+    public ScenePropState[] SceneProps;
 
     private Dictionary<int, object> ExtensionData = new();
 
@@ -894,6 +992,7 @@ public class Frame
         frame.Players = Utilities.NewArray(Players.Length, Players);
         frame.Pedestals = Utilities.NewArray(Pedestals.Length, Pedestals);
         frame.Events = Utilities.NewArray(Events.Length, Events);
+        frame.SceneProps = Utilities.NewArray(SceneProps.Length, SceneProps);
 
         return frame;
     }
@@ -924,11 +1023,10 @@ public class StructureState
     public Vector3 position;
     public Quaternion rotation;
     public bool active;
-    public bool grounded;
     public bool isLeftHeld;
     public bool isRightHeld;
     public bool isFlicked;
-    public StructureStateType currentState;
+    public Structure.PhysicsState currentState;
     public bool isTargetDisk;
 
     public StructureState Clone()
@@ -938,7 +1036,6 @@ public class StructureState
             position = position,
             rotation = rotation,
             active = active,
-            grounded = grounded,
             isLeftHeld = isLeftHeld,
             isRightHeld = isRightHeld,
             isFlicked = isFlicked,
@@ -952,6 +1049,8 @@ public class StructureState
 public class StructureInfo
 {
     public StructureType Type;
+    public int structureId;
+    public int? targetDamage;
 }
 
 public enum StructureField : byte
@@ -977,18 +1076,12 @@ public enum StructureType : byte
     CagedBall,
     LargeRock,
     SmallRock,
-    TetheredCagedBall
-}
-
-public enum StructureStateType : byte
-{
-    Default,
-    Free,
-    Frozen,
-    FreeGrounded,
-    StableGrounded,
-    Float,
-    Normal
+    TetheredCagedBall,
+    WrappedWall,
+    PrisonedPillar,
+    DockedDisk,
+    CageCube,
+    Target
 }
 
 // ------- Player State -------
@@ -1209,6 +1302,7 @@ public class EventChunk
     public Quaternion rotation = Quaternion.identity;
     public string masterId;
     public int playerIndex;
+    public int structureId = -1;
     
     // Damage HitMarker
     public int damage;
@@ -1230,7 +1324,8 @@ public enum EventField : byte
     masterId = 3,
     playerIndex = 7,
     damage = 8,
-    fxType = 9
+    fxType = 9,
+    structureId = 10
 }
 
 [Serializable]
@@ -1288,6 +1383,41 @@ public enum FXOneShotType : byte
     Hitmarker
 }
 
+// ------- Scene Prop State -------
+
+[Serializable]
+public class ScenePropState
+{
+    public Vector3 position;
+    public Quaternion rotation;
+
+    public ScenePropState Clone()
+    {
+        return new ScenePropState
+        {
+            position = position,
+            rotation = rotation
+        };
+    }
+}
+
+public enum ScenePropField : byte
+{
+    position,
+    rotation
+}
+
+[Serializable]
+public class ScenePropInfo
+{
+    public ScenePropType type;
+}
+
+public enum ScenePropType : byte
+{
+    Fruit
+}
+
 // ------------------------
 
 public enum ChunkType : byte
@@ -1296,5 +1426,6 @@ public enum ChunkType : byte
     StructureState = 1,
     PedestalState = 2,
     Event = 3,
+    ScenePropState = 4,
     Extension = 250
 }

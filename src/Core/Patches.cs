@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Il2Cpp;
 using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.Audio;
 using Il2CppRUMBLE.Environment;
@@ -12,6 +13,7 @@ using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Pools;
+using Il2CppRUMBLE.VFX;
 using MelonLoader;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
@@ -31,6 +33,7 @@ public class Patches
 
     public static Dictionary<string, Queue<(float time, int damage)>> damageQueues = new();
     public static Dictionary<string, float> lastLargeDamageTime = new();
+    public static HashSet<VisualEffect> frameSeenEffects = new();
     
     public static int GetPlayerIndex(Player player) => Main.Recording.RecordedPlayers.IndexOf(player);
     
@@ -42,18 +45,9 @@ public class Patches
         {
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
-
+    
             var structure = __result.GetComponent<Structure>();
             Main.Recording.TryRegisterStructure(structure);
-        }
-    }
-
-    [HarmonyPatch(typeof(Structure), nameof(Structure.Start))]
-    public class Patch_Structure_Start
-    {
-        static Exception Finalizer(Exception __exception)
-        {
-            return null;
         }
     }
 
@@ -65,9 +59,9 @@ public class Patches
         {
             if (call == null)
                 return;
-
+    
             FXOneShotType? type = ReplayCache.AudioCallToFX.TryGetValue(call.name, out var foundType) ? foundType : null;
-
+    
             if (type.HasValue)
             {
                 Main.Recording.Events.Add(new EventChunk
@@ -90,7 +84,7 @@ public class Patches
             var vfx = __result.GetComponent<VisualEffect>(); 
             if (vfx == null) 
                 return;
-
+    
             vfx.playRate = 1f;
         }
     }
@@ -110,39 +104,42 @@ public class Patches
             
             string name = vfx.name;
 
-            if (Main.Recording.isRecording || Main.Recording.isBuffering)
+            if (name == "Ricochet_VFX")
             {
-                FXOneShotType? type = ReplayCache.VFXNameToFX.TryGetValue(name, out var foundType) ? foundType : null;
-
-                if (type.HasValue)
+                var evt = new EventChunk
                 {
-                    var evt = new EventChunk
-                    {
-                        type = EventType.OneShotFX, 
-                        fxType = type.Value, 
-                        position = position
-                    }; 
-                    
-                    if (type is FXOneShotType.Ricochet) 
-                        evt.rotation = rotation; Main.Recording.Events.Add(evt);
+                    type = EventType.OneShotFX,
+                    fxType = FXOneShotType.Ricochet,
+                    position = vfx.transform.position,
+                    rotation = vfx.transform.rotation
+                };
 
-                    if (type is FXOneShotType.Hitmarker)
-                        evt.damage = (int)vfx.GetFloat("Damage");
-                }
+                Main.Recording.Events.Add(evt);
+            } else if (name == "Hitmarker")
+            {
+                var evt = new EventChunk
+                {
+                    type = EventType.OneShotFX,
+                    fxType = FXOneShotType.Hitmarker,
+                    position = vfx.transform.position,
+                    damage = (int)vfx.GetFloat("Damage")
+                };
+                
+                Main.Recording.Events.Add(evt);
             }
-
+    
             if (Main.Playback.playbackSpeed != 0f && Main.Playback.isPlaying)
             {
                 float minDistance = 999999f;
                 
-                if (name is "Jump_VFX" or "Dash_VFX" && Main.Playback.PlaybackPlayers?.Length > 0)
+                if (name is "VFX_Dust_Modifier_Jump" or "VFX_Dust_Modifier_Dash" && Main.Playback.PlaybackPlayers?.Length > 0)
                 {
                     minDistance = Main.Playback.PlaybackPlayers
                         .Select(player => Vector3.Distance(player.Controller.transform.GetChild(1).GetChild(2).position, vfx.transform.position))
                         .Min();
                 }
-
-                if (name is "Unground_VFX" or "Ground_VFX" && Main.Playback.PlaybackStructures?.Length > 0)
+    
+                if (name is "VFX_Dust_Modifier_Free" or "VFX_Dust_Modifier_Ground" && Main.Playback.PlaybackStructures?.Length > 0)
                 {
                     minDistance = Main.Playback.PlaybackStructures
                         .Select(structure => Vector3.Distance(structure.transform.position, vfx.transform.position))
@@ -161,6 +158,32 @@ public class Patches
                 
                 vfx.playRate = 1f;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(VFXFloatSwitch), nameof(VFXFloatSwitch.Apply))]
+    public class Patch_VFXFloatSwitch_Apply
+    {
+        static void Prefix(VFXFloatSwitch __instance, VisualEffect effect, int structureID)
+        {
+            if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
+                return;
+            
+            if (!ReplayCache.VFXNameToFX.TryGetValue(effect.name, out var type))
+                return;
+
+            if (!frameSeenEffects.Add(effect))
+                return;
+            
+            var evt = new EventChunk
+            {
+                type = EventType.OneShotFX,
+                fxType = type,
+                position = effect.transform.position,
+                structureId = structureID
+            };
+
+            Main.Recording.Events.Add(evt);
         }
     }
     
@@ -252,7 +275,6 @@ public class Patches
             }
         }
     }
-    
 
     // ----- Stack Recording -----
     [HarmonyPatch(typeof(PlayerStackProcessor), nameof(PlayerStackProcessor.Execute))]
@@ -262,12 +284,11 @@ public class Patches
         {
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
-
+    
             if (ReplayCache.NameToStackType.TryGetValue(stack.cachedName, out var type))
                 activations.Add((__instance.ParentController.assignedPlayer.Data.GeneralData.PlayFabMasterId, (short)type));
         }
     }
-    
     
     // ----- Other -----
     [HarmonyPatch(typeof(SceneManager), nameof(SceneManager.LoadSceneAsync))]
