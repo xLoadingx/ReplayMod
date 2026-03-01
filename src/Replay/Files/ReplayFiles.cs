@@ -239,7 +239,10 @@ public static class ReplayFiles
 
         var names = new List<string>(shown);
         for (int i = 0; i < shown; i++)
+        {
+            if (players[i] == null) continue;
             names.Add($"{players[i].Name}<#FFF>");
+        }
 
         string line = string.Join(", ", names);
 
