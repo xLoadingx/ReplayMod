@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Il2CppPhoton.Pun;
-using Il2CppRUMBLE.Combat.ShiftStones;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Environment.MatchFlow;
 using Il2CppRUMBLE.Input;

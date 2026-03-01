@@ -20,7 +20,6 @@ using MelonLoader;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
-using RumbleModdingAPI;
 using RumbleModdingAPI.RMAPI;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
@@ -234,7 +233,7 @@ public class ReplayPlayback
         
         for (int i = 0; i < currentReplay.Header.PedestalCount; i++)
         {
-            var pedestal = PoolManager.instance.GetPool("Pedestal").FetchFromPool().gameObject;
+            var pedestal = PoolManager.instance.GetPool("MatchPedestal").FetchFromPool().gameObject;
             pedestal.transform.SetParent(pedestalsParent.transform);
             replayPedestals.Add(pedestal);
             

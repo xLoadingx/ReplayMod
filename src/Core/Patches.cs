@@ -13,7 +13,6 @@ using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Pools;
-using Il2CppRUMBLE.VFX;
 using MelonLoader;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
