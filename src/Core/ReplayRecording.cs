@@ -253,7 +253,7 @@ public class ReplayRecording
                 visualData = p.Data.VisualData.ToPlayfabDataString()
             };
 
-            if (p.Controller.PlayerSessionStateSystem.IsUserPresentInVR())
+            try
             {
                 var LhandInput = playerHandPresence.GetHandPresenceInputForHand(InputManager.Hand.Left);
                 var RhandInput = playerHandPresence.GetHandPresenceInputForHand(InputManager.Hand.Right);
@@ -267,6 +267,10 @@ public class ReplayRecording
                     playerState.rthumbInput = RhandInput.indexInput;
                     playerState.rgripInput = RhandInput.gripInput;
                 }
+            }
+            catch
+            {
+                // Not in headset ¯\_(ツ)_/¯
             }
 
             if (rockCam != null)

@@ -313,6 +313,8 @@ public class Patches
     {
         static void Prefix(PlayerHandPresence __instance, InputManager.Hand hand, ref PlayerHandPresence.HandPresenceInput input)
         {
+            if (__instance.parentController == null) return;
+            
             if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
                 return;
 

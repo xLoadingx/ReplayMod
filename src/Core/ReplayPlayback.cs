@@ -245,22 +245,22 @@ public class ReplayPlayback
         
         // ------ Scene Props ------
 
-        replaySceneProps.Clear();
-
-        for (int i = 0; i < currentReplay.Header.ScenePropCount; i++)
-        {
-            var scenePropPool = currentReplay.Header.SceneProps[i].type switch
-            {
-                ScenePropType.Fruit => PoolManager.instance.GetPool("Fruit"),
-                _ => throw new Exception($"Unknown ScenePropType: {currentReplay.Header.SceneProps[i].type}")
-            };
-
-            if (scenePropPool == null) continue;
-            
-            var sceneProp = scenePropPool.FetchFromPool().gameObject;
-            sceneProp.transform.SetParent(scenePropsParent.transform);
-            replaySceneProps.Add(sceneProp);
-        }
+        // replaySceneProps.Clear();
+        //
+        // foreach (var scenePropInfo in currentReplay.Header.SceneProps)
+        // {
+        //     var scenePropPool = scenePropInfo.type switch
+        //     {
+        //         ScenePropType.Fruit => PoolManager.instance.GetPool("Fruit"),
+        //         _ => throw new Exception($"Unknown ScenePropType: {scenePropInfo.type}")
+        //     };
+        //
+        //     if (scenePropPool == null) continue;
+        //     
+        //     var sceneProp = scenePropPool.FetchFromPool().gameObject;
+        //     sceneProp.transform.SetParent(scenePropsParent.transform);
+        //     replaySceneProps.Add(sceneProp);
+        // }
         
         // --------------
         
@@ -968,7 +968,7 @@ public class ReplayPlayback
                 rockCam.transform.SetLocalPositionAndRotation(pos, rot);
             }
 
-            if (state.playerMeasurement.ArmSpan != pb.ArmSpan || state.playerMeasurement.Length != pb.Length)
+            if (playbackPlayer.Controller.assignedPlayer.Data.PlayerMeasurement.ArmSpan != pb.ArmSpan || state.playerMeasurement.Length != pb.Length)
             {
                 var measurement = new PlayerMeasurement(pb.Length, pb.ArmSpan);
                 state.playerMeasurement = measurement;
