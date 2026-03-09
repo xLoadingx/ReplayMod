@@ -86,6 +86,7 @@ public static class ReplayPlaybackControls
             playbackControls.transform.rotation = rotation;
             playbackControls.SetActive(true);
             playbackControls.transform.GetChild(0).gameObject.SetActive(true);
+            playbackControls.transform.GetChild(1).gameObject.SetActive(true);
 
             AudioManager.instance.Play(ReplayCache.SFX["Call_Slab_Construct"], Main.instance.head.position);
         }
@@ -99,6 +100,7 @@ public static class ReplayPlaybackControls
     
         playbackControls.SetActive(false);
         playbackControls.transform.GetChild(0).gameObject.SetActive(false);
+        playbackControls.transform.GetChild(1).gameObject.SetActive(false);
         
         AudioManager.instance.Play(ReplayCache.SFX["Call_Slab_Dismiss"], Main.instance.head.position);
         PoolManager.instance.GetPool("DustBreak_VFX").FetchFromPool(playbackControls.transform.position, playbackControls.transform.rotation)

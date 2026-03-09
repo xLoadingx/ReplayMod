@@ -154,6 +154,7 @@ public static class ReplayFiles
         {
             yield return null;
 
+            ReloadReplays();
             reloadQueued = false;
         }
         
@@ -316,9 +317,9 @@ public static class ReplayFiles
         table.replayNameText.ForceMeshUpdate();
         table.indexText.ForceMeshUpdate();
         table.metadataText.ForceMeshUpdate();
-        ApplyTMPSettings(table.replayNameText, 5f, 0.51f, true);
         ApplyTMPSettings(table.indexText, 5f, 0.51f, false);
         ApplyTMPSettings(table.metadataText, 15f, 2f, true);
+        table.replayNameText.GetComponent<RectTransform>().sizeDelta = new Vector2(3, 0.7f);
         table.metadataText.enableAutoSizing = true;
     }
 
@@ -389,7 +390,7 @@ public static class ReplayFiles
             text.enableWordWrapping = true;
             text.overflowMode = TextOverflowModes.Overflow;
             text.enableAutoSizing = true;
-            text.autoSizeTextContainer = true;
+            text.enableWordWrapping = false;
         }
     }
 }

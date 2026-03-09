@@ -39,7 +39,12 @@
     </ItemGroup>
   
     <ItemGroup>
-      <EmbeddedResource Include="src\Core\replayobjects2" />
+      <None Remove="src\Core\replayobjects2" />
+    </ItemGroup>
+  
+    <ItemGroup>
+      <None Remove="src\Core\replayobjects" />
+      <EmbeddedResource Include="src\Core\replayobjects" />
     </ItemGroup>
   
     <Target Name="PostBuild" AfterTargets="PostBuildEvent">

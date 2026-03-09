@@ -393,7 +393,7 @@ public class ReplayRecording
             {
                 Version = BuildInfo.Version,
                 Date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                Scene = recordingSceneName,
+                Scene = isBufferClip ? Main.currentScene : recordingSceneName,
                 Duration = duration,
                 CustomMap = customMap,
                 FrameCount = frames.Length,

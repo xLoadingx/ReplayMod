@@ -92,7 +92,8 @@ public class ReplaySettings : MonoBehaviour
         durationComp.text = t.TotalHours >= 1 ? 
             $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}" : 
             $"{(int)t.TotalMinutes}:{t.Seconds:D2}";
-        
+
+        durationComp.enableWordWrapping = false;
         durationComp.ForceMeshUpdate();
         
         isRenaming = false;
@@ -100,6 +101,12 @@ public class ReplaySettings : MonoBehaviour
 
     private void Update()
     {
+        float bottom = replayName.textBounds.min.y;
+        var pos = replayName.transform.localPosition;
+        pos.y += bottom - 0.04f;
+
+        dateText.transform.localPosition = pos;
+        
         if (!isRenaming)
             return;
         
@@ -133,8 +140,19 @@ public class ReplaySettings : MonoBehaviour
                 }
             } else if (IsAllowedChar(c))
             {
-                renameBuffer.Append(c);
-                AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_BackwardUnlocked"], transform.position);
+                string dir = Path.GetDirectoryName(currentPath);
+                string testName = renameBuffer.ToString() + c + ".replay";
+                string testPath = Path.Combine(dir, testName);
+
+                if (testPath.Length < 260)
+                {
+                    renameBuffer.Append(c);
+                    AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_BackwardUnlocked"], transform.position);
+                }
+                else
+                {
+                    Main.ReplayError($"Replay name too long. Max path length is 260 chars while the provided path contains {testPath.Length}", transform.position);
+                }
             }
             else
             {
@@ -292,7 +310,7 @@ public class ReplaySettings : MonoBehaviour
         
         AudioManager.instance.Play(ReplayCache.SFX[active ? "Call_Phone_ScreenUp" : "Call_Phone_ScreenDown"], slideOutPanel.transform.localPosition);
 
-        Vector3 position = active ? new Vector3(-1.1906f, 0.5273f, 0.16f) : new Vector3(-0.1288f, 0.5273f, 0.16f);
+        Vector3 position = active ? new Vector3(-0.65686f, 0.3898f, 0.0134f) : new Vector3(-0.0778f, 0.3898f, 0.0134f);
         MelonCoroutines.Start(Utilities.LerpValue(
             () => slideOutPanel.transform.localPosition,
             v => slideOutPanel.transform.localPosition = v,

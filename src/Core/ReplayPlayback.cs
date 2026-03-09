@@ -561,6 +561,10 @@ public class ReplayPlayback
         foreach (var pose in Main.LocalPlayer.Controller.PlayerPoseSystem.currentInputPoses)
             poseSystem.currentInputPoses.Add(new PoseInputSource(pose.PoseSet));
         poseSystem.enabled = true;
+        
+        newPlayer.Controller.PlayerUI.localUIBar
+            .InitializeMaterials(newPlayer.Controller, PlayerUIBar.UIBarMode.Health);
+        newPlayer.Controller.PlayerUI.localUIBar.healthbarModeMaterial.SetFloat("_IsLocal", 1f);
 
         var clone = newPlayer.Controller.gameObject.AddComponent<Clone>();
 
@@ -661,7 +665,7 @@ public class ReplayPlayback
 
                 // Hitstop
                 bool isHitstop = state.currentState == Structure.PhysicsState.Frozen;
-                var renderer = structureComp.transform.GetChild(0).GetComponent<MeshRenderer>();
+                var renderer = structureComp.transform.GetComponentInChildren<Renderer>();
                 renderer?.material?.SetFloat("_shake", isHitstop ? 1 : 0);
                 renderer?.material?.SetFloat("_shakeFrequency", 75 * playbackSpeed);
                 
@@ -751,7 +755,7 @@ public class ReplayPlayback
             {
                 var pool = poolManager.GetPool("Flick_VFX");
                 var effect = GameObject.Instantiate(pool.poolItem.gameObject, playbackStructure.transform);
-
+                
                 effect.transform.localPosition = Vector3.zero;
                 effect.transform.localRotation = Quaternion.identity;
                 var visualEffect = effect.GetComponent<VisualEffect>();
@@ -1332,7 +1336,8 @@ public class ReplayPlayback
         var localController = Main.LocalPlayer.Controller.transform;
         
         foreach (var renderer in localController.GetChild(1).GetComponentsInChildren<Renderer>())
-            renderer.gameObject.layer = LayerMask.NameToLayer(hideLocalPlayer ? "PlayerFade" : "PlayerController");
+            if (!renderer.name.Contains("Collider"))
+                renderer.gameObject.layer = LayerMask.NameToLayer(hideLocalPlayer ? "ScreenFade" : "PlayerController");
         
         localController.GetChild(6).gameObject.SetActive(!hideLocalPlayer);
         
@@ -1343,6 +1348,7 @@ public class ReplayPlayback
             {
                 povHead.transform.localScale = Vector3.one;
                 povPlayer.Controller.transform.GetChild(6).gameObject.SetActive(true);
+                povPlayer.Controller.transform.GetChild(4).gameObject.SetActive(true);
             }
         }
 
@@ -1353,15 +1359,15 @@ public class ReplayPlayback
             povHead.transform.localScale = Vector3.zero;
             povPlayer.Controller.transform.GetChild(6).gameObject.SetActive(false);
             povPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
+            povPlayer.Controller.transform.GetChild(4).gameObject.SetActive(false);
             
             Main.LocalPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
             povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = true;
             
-            
             foreach (var renderer in ReplayPlaybackControls.playbackControls.GetComponentsInChildren<Renderer>(true))
             {
                 if (renderer.gameObject.layer != LayerMask.NameToLayer("InteractionBase"))
-                    renderer.gameObject.layer = LayerMask.NameToLayer("PlayerFade");
+                    renderer.gameObject.layer = LayerMask.NameToLayer("ScreenFade");
             }
             
             cam.localPlayerVR = povPlayer.Controller.PlayerVR;
@@ -1376,7 +1382,7 @@ public class ReplayPlayback
             
             foreach (var renderer in localController.GetChild(1).GetComponentsInChildren<Renderer>())
                 renderer.gameObject.layer = LayerMask.NameToLayer("PlayerController");
-            
+                
             foreach (var renderer in ReplayPlaybackControls.playbackControls.GetComponentsInChildren<Renderer>(true))
             {
                 if (renderer.gameObject.layer != LayerMask.NameToLayer("InteractionBase"))

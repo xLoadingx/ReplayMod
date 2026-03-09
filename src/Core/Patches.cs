@@ -123,7 +123,7 @@ public class Patches
                     position = vfx.transform.position,
                     damage = (int)vfx.GetFloat("Damage")
                 };
-                
+
                 Main.Recording.Events.Add(evt);
             }
     
