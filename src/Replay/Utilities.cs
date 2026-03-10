@@ -167,9 +167,16 @@ public static class Utilities
     public static IEnumerator LoadMap(int index, float fadeDuration = 2f, Action onLoaded = null, float onLoadedDelay = 0.01f)
     {
         CombatManager.instance.CleanStructureList();
-        
+
         foreach (var structure in CombatManager.instance.structures.ToArray())
-            structure?.Kill(Vector3.zero, false, false);
+        {
+            if (structure == null) continue;
+
+            try
+            {
+                structure.Kill(Vector3.zero, false, false);
+            } catch { }
+        }
         
         SceneManager.instance.LoadSceneAsync(index, false, false, fadeDuration);
 
