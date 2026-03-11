@@ -25,6 +25,7 @@ using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
+using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using EventType = ReplayMod.Replay.Serialization.EventType;
 using PlayerState = ReplayMod.Replay.Serialization.PlayerState;
 using Utilities = ReplayMod.Replay.Utilities;
@@ -303,6 +304,8 @@ public class ReplayPlayback
             TogglePlayback(true);
 
             ReplayRoot.transform.position = Vector3.zero;
+
+            Main.LocalPlayer.Controller.transform.GetChild(6).gameObject.SetActive(false);
             
             ReplayAPI.ReplayStartedInternal(currentReplay);
         }));
@@ -972,7 +975,7 @@ public class ReplayPlayback
                 rockCam.transform.SetLocalPositionAndRotation(pos, rot);
             }
 
-            if (playbackPlayer.Controller.assignedPlayer.Data.PlayerMeasurement.ArmSpan != pb.ArmSpan || state.playerMeasurement.Length != pb.Length)
+            if (state.playerMeasurement.ArmSpan != pb.ArmSpan || state.playerMeasurement.Length != pb.Length)
             {
                 var measurement = new PlayerMeasurement(pb.Length, pb.ArmSpan);
                 state.playerMeasurement = measurement;

@@ -128,18 +128,20 @@ public static class ReplayFiles
     
     static void StartWatchingReplays()
     {
-        replayWatcher = new FileSystemWatcher(Path.Combine(replayFolder, "Replays"), "*.replay");
+        replayWatcher = new FileSystemWatcher(Path.Combine(replayFolder, "Replays"));
 
         replayWatcher.NotifyFilter =
             NotifyFilters.FileName |
             NotifyFilters.LastWrite |
-            NotifyFilters.CreationTime;
+            NotifyFilters.CreationTime |
+            NotifyFilters.DirectoryName;
 
         replayWatcher.Created += OnReplayFolderChanged;
         replayWatcher.Deleted += OnReplayFolderChanged;
         replayWatcher.Renamed += OnReplayFolderChanged;
         
         replayWatcher.EnableRaisingEvents = true;
+        replayWatcher.IncludeSubdirectories = true;
 
         metadataFormatWatcher = new FileSystemWatcher(Path.Combine(replayFolder, "Settings", "MetadataFormats"), "*.txt");
 
@@ -264,7 +266,7 @@ public static class ReplayFiles
             return;
 
         var path = explorer.CurrentReplayPath;
-        var count = explorer.currentReplayPaths.Count;
+        var count = explorer.currentReplayEntries.Count;
         var index = explorer.currentIndex;
 
         ReplaySerializer.ReplayHeader header = null;
@@ -331,11 +333,11 @@ public static class ReplayFiles
 
         if (!string.IsNullOrEmpty(previousGuid))
         {
-            int newIndex = explorer.currentReplayPaths
-                .Select((path, i) => new { path, i })
+            int newIndex = explorer.currentReplayEntries
+                .Select((entry, i) => new { entry, i })
                 .FirstOrDefault(x =>
                 {
-                    var header = ReplayArchive.GetManifest(x.path);
+                    var header = ReplayArchive.GetManifest(x.entry.FullPath);
                     return header.Guid == previousGuid;
                 })?.i ?? -1;
 

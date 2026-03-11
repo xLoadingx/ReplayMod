@@ -21,6 +21,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
+using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using BuildInfo = ReplayMod.Core.BuildInfo;
 using InteractionButton = Il2CppRUMBLE.Interactions.InteractionBase.InteractionButton;
 using Main = ReplayMod.Core.Main;
@@ -1030,6 +1031,9 @@ public class Main : MelonMod
         replaySettingsPanel.transform.localScale = Vector3.one;
         replaySettingsPanel.transform.GetChild(0).GetChild(0).gameObject.layer = LayerMask.NameToLayer("Default");
         GameObject.Destroy(replaySettingsPanel.GetComponent<DisposableObject>());
+
+        var replaySettingsGO = new GameObject("Replay Settings");
+        replaySettingsGO.transform.SetParent(replaySettingsPanel.transform.GetChild(0), false);
         
         replaySettingsPanel.transform.GetChild(0).transform.localRotation = Quaternion.Euler(0, 180, 0);
         replaySettingsPanel.transform.GetChild(0).GetChild(0).transform.localRotation = Quaternion.Euler(0, 180, 0);
@@ -1042,7 +1046,7 @@ public class Main : MelonMod
         
         var povCameraButton = GameObject.Instantiate(
             GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
-            replaySettingsPanel.transform.GetChild(0)
+            replaySettingsGO.transform
         );
         
         povCameraButton.name = "POV Button";
@@ -1072,7 +1076,7 @@ public class Main : MelonMod
         
         var hideLocalPlayerButton = GameObject.Instantiate(
             GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(), 
-            replaySettingsPanel.transform.GetChild(0)
+            replaySettingsGO.transform
         );
         
         hideLocalPlayerButton.name = "Hide Local Player Toggle";
@@ -1116,7 +1120,7 @@ public class Main : MelonMod
         
         var openControlsButton = GameObject.Instantiate(
             GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
-            replaySettingsPanel.transform.GetChild(0)
+            replaySettingsGO.transform
         );
         
         openControlsButton.name = "Open Controls Toggle";
@@ -1158,11 +1162,11 @@ public class Main : MelonMod
         openControlsText.fontSizeMax = 1.3f;
         openControlsText.ForceMeshUpdate();
         
-        var slideOutPanel = GameObject.Instantiate(bundle.LoadAsset<GameObject>("SlideOutPlayerSelector"), replaySettingsPanel.transform.GetChild(0));
+        var slideOutPanel = GameObject.Instantiate(bundle.LoadAsset<GameObject>("SlideOutPlayerSelector"), replaySettingsGO.transform);
         
         slideOutPanel.name = "Player Selector Panel";
         slideOutPanel.transform.localScale = Vector3.one * 1.5f;
-        slideOutPanel.transform.localPosition = new Vector3(-0.0778f, 0.3808f, 0.0567f);
+        slideOutPanel.transform.localPosition = new Vector3(-0.0778f, 0.3898f, 0.0134f);
         slideOutPanel.SetActive(false);
         
         var slideOutText = Create.NewText();
@@ -1251,14 +1255,14 @@ public class Main : MelonMod
         pageNumberTextComp.enableWordWrapping = false;
         pageNumberTextComp.ForceMeshUpdate();
         
-        var timelineRS = GameObject.Instantiate(timeline, replaySettingsPanel.transform.GetChild(0));
+        var timelineRS = GameObject.Instantiate(timeline, replaySettingsGO.transform);
         timelineRS.name = "Timeline";
         timelineRS.layer = LayerMask.NameToLayer("Default");
         timelineRS.transform.localPosition = new Vector3(-0.0138f, -0.0039f, -0.0451f);
         timelineRS.transform.localScale = new Vector3(0.5168f, 0.0318f, 1.9291f);
         timelineRS.transform.localRotation = Quaternion.identity;
         
-        var durationRS = GameObject.Instantiate(totalDuration, replaySettingsPanel.transform.GetChild(0));
+        var durationRS = GameObject.Instantiate(totalDuration, replaySettingsGO.transform);
         durationRS.name = "TotalDuration";
         durationRS.gameObject.layer = LayerMask.NameToLayer("Default");
         durationRS.transform.localPosition = new Vector3(0f, 0.0433f, -0.0444f);
@@ -1266,7 +1270,7 @@ public class Main : MelonMod
         durationRS.GetComponent<TextMeshPro>().enableWordWrapping = false;
         durationRS.GetComponent<TextMeshPro>().ForceMeshUpdate();
         
-        var replayNameTitle = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsPanel.transform.GetChild(0));
+        var replayNameTitle = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsGO.transform);
         replayNameTitle.transform.localPosition = new Vector3(0, 0.4527f, -0.0425f);
         replayNameTitle.transform.localScale = Vector3.one * 0.5f;
         replayNameTitle.name = "Replay Title";
@@ -1280,16 +1284,16 @@ public class Main : MelonMod
         replayNameTitleComp.GetComponent<RectTransform>().sizeDelta = new Vector2(1.2f, 0.1577f);
         replayNameTitleComp.alignment = TextAlignmentOptions.Top;
         
-        var dateText = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsPanel.transform.GetChild(0));
+        var dateText = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsGO.transform);
         dateText.transform.localPosition = new Vector3(0, 0.3854f, -0.0436f);
         dateText.transform.localScale = Vector3.one * 0.25f;
         dateText.name = "Date";
         dateText.layer = LayerMask.NameToLayer("Default");
         dateText.GetComponent<TextMeshPro>().enableWordWrapping = false;
         
-        var deleteButton = GameObject.Instantiate(crystalizeButton, replaySettingsPanel.transform.GetChild(0));
+        var deleteButton = GameObject.Instantiate(crystalizeButton, replaySettingsGO.transform);
         deleteButton.name = "DeleteReplay";
-        deleteButton.transform.localPosition = new Vector3(0.1071f, -0.1742f, -0.0545f);
+        deleteButton.transform.localPosition = new Vector3(0.1071f, -0.1486f, -0.0545f);
         deleteButton.transform.localRotation = Quaternion.identity;
         deleteButton.transform.localScale = Vector3.one * 1.1f;
         
@@ -1337,7 +1341,7 @@ public class Main : MelonMod
         dateComp.fontSizeMin = 0.7f;
         dateComp.fontSizeMax = 1.2f;
         
-        var renameInstructions = GameObject.Instantiate(dateText, replaySettingsPanel.transform.GetChild(0));
+        var renameInstructions = GameObject.Instantiate(dateText, replaySettingsGO.transform);
         renameInstructions.name = "Rename Instructions";
         renameInstructions.transform.localPosition = new Vector3(0, 0.2898f, -0.0422f);
         renameInstructions.transform.localScale = Vector3.one * 0.55f;
@@ -1358,9 +1362,9 @@ public class Main : MelonMod
         deleteReplayTextComp.enableWordWrapping = false;
         deleteReplayTextComp.ForceMeshUpdate();
         
-        var copyPathButton = GameObject.Instantiate(deleteButton, replaySettingsPanel.transform.GetChild(0));
+        var copyPathButton = GameObject.Instantiate(deleteButton, replaySettingsGO.transform);
         copyPathButton.name = "CopyPathButton";
-        copyPathButton.transform.localPosition = new Vector3(-0.0224f, -0.1742f, -0.0545f);
+        copyPathButton.transform.localPosition = new Vector3(-0.0224f, -0.1486f, -0.0545f);
         copyPathButton.transform.localRotation = Quaternion.identity;
         
         copyPathButton.transform.GetChild(2).GetComponent<TextMeshPro>().text = "Copy Path";
@@ -1391,9 +1395,9 @@ public class Main : MelonMod
         
         replaySettings = replaySettingsPanel.AddComponent<ReplaySettings>();
         
-        var renameButton = GameObject.Instantiate(deleteButton, replaySettingsPanel.transform.GetChild(0));
+        var renameButton = GameObject.Instantiate(deleteButton, replaySettingsGO.transform);
         renameButton.name = "RenameButton";
-        renameButton.transform.localPosition = new Vector3(-0.1522f, -0.1742f, -0.0545f);
+        renameButton.transform.localPosition = new Vector3(-0.1522f, -0.1486f, -0.0545f);
         renameButton.transform.localRotation = Quaternion.identity;
         
         var renameButtonComp = renameButton.transform.GetChild(0).GetComponent<InteractionButton>();
@@ -1415,7 +1419,8 @@ public class Main : MelonMod
         renameButton.transform.GetChild(2).GetComponent<TextMeshPro>().ForceMeshUpdate();
         renameButton.transform.GetChild(2).localPosition = new Vector3(0.0171f, 0.0713f, 0);
         GameObject.Destroy(renameButton.transform.GetChild(0).GetChild(3).gameObject);
-        
+
+        ReplaySettings.replaySettingsGO = replaySettingsGO;
         ReplaySettings.deleteButton = deleteButtonComp;
         ReplaySettings.replayName = replayNameComp;
         ReplaySettings.dateText = dateComp;
@@ -1428,6 +1433,13 @@ public class Main : MelonMod
         ReplaySettings.povButton = povCameraButton;
         ReplaySettings.hideLocalPlayerToggle = hideLocalPlayerButton;
         ReplaySettings.openControlsButton = openControlsButton;
+        
+        // Replay Explorer
+
+        var replayExplorerGO = new GameObject("Replay Explorer");
+        replayExplorerGO.transform.SetParent(replaySettingsPanel.transform.GetChild(0), false);
+
+        ReplaySettings.replayExplorerGO = replayExplorerGO;
         
         GameObject.DontDestroyOnLoad(ReplayTable);
         GameObject.DontDestroyOnLoad(crystalPrefab);

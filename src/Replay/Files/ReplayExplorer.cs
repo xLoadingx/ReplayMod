@@ -13,7 +13,6 @@ public class ReplayExplorer
     public string RootPath { get; }
     public string CurrentFolderPath { get; private set; }
 
-    public List<string> currentReplayPaths = new();
     public List<Entry> currentReplayEntries = new();
     public int currentIndex = -1;
 
@@ -33,8 +32,8 @@ public class ReplayExplorer
     }
 
     public string CurrentReplayPath =>
-        currentIndex >= 0 && currentIndex < currentReplayPaths.Count
-            ? currentReplayPaths[currentIndex]
+        currentIndex >= 0 && currentIndex < currentReplayEntries.Count
+            ? currentReplayEntries[currentIndex].FullPath
             : null;
 
     public Entry currentlySelectedEntry =>
@@ -52,9 +51,8 @@ public class ReplayExplorer
     public void Refresh()
     {
         currentReplayEntries = GetEntries();
-        currentReplayPaths = currentReplayEntries.Select(e => e.FullPath).ToList();
         
-        currentIndex = Clamp(currentIndex, -1, currentReplayPaths.Count - 1);
+        currentIndex = Clamp(currentIndex, -1, currentReplayEntries.Count - 1);
     }
 
     public List<Entry> GetEntries(SortingType sorting = SortingType.DateNewestFirst)
@@ -81,12 +79,22 @@ public class ReplayExplorer
             })
             .ToList();
 
-        files = SortFiles(files, sorting);
+        var entries = new List<Entry>();
 
-        currentReplayEntries = files;
+        if (CurrentFolderPath != RootPath)
+        {
+            entries.Add(new Entry
+            {
+                Name = "..",
+                FullPath = Directory.GetParent(CurrentFolderPath)?.FullName,
+                IsFolder = true
+            });
+        }
 
-        folders.AddRange(files);
-        return folders;
+        entries.AddRange(folders);
+        entries.AddRange(files);
+
+        return entries;
     }
 
     private List<Entry> SortFiles(List<Entry> files, SortingType sorting)
@@ -96,11 +104,11 @@ public class ReplayExplorer
             SortingType.NameAscending => files.OrderBy(f => f.Name).ToList(),
             SortingType.NameDescending => files.OrderByDescending(f => f.Name).ToList(),
 
-            SortingType.DateNewestFirst => files.OrderBy(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
-            SortingType.DateOldestFirst => files.OrderByDescending(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
+            SortingType.DateNewestFirst => files.OrderByDescending(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
+            SortingType.DateOldestFirst => files.OrderBy(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
 
-            SortingType.DurationLongestFirst => files.OrderBy(f => f.header.Duration).ToList(),
-            SortingType.DurationShortestFirst => files.OrderByDescending(f => f.header.Duration).ToList(),
+            SortingType.DurationLongestFirst => files.OrderByDescending(f => f.header.Duration).ToList(),
+            SortingType.DurationShortestFirst => files.OrderBy(f => f.header.Duration).ToList(),
 
             SortingType.MapAscending => files.OrderBy(f => ReplayFormatting.GetMapName(header: f.header), StringComparer.OrdinalIgnoreCase).ToList(),
             SortingType.PlayerCountDescending => files.OrderByDescending(f => f.header.Players?.Length).ToList(),
@@ -111,7 +119,12 @@ public class ReplayExplorer
 
     public void Enter(string path)
     {
-        if (!Directory.Exists(path)) return;
+        if (!Directory.Exists(path)) 
+            return;
+
+        if (!path.StartsWith(RootPath, StringComparison.OrdinalIgnoreCase)) 
+            return;
+        
         CurrentFolderPath = path;
         currentIndex = -1;
         Refresh();
@@ -119,43 +132,43 @@ public class ReplayExplorer
 
     public void GoUp()
     {
+        if (CurrentFolderPath == RootPath)
+            return;
+        
         var parent = Directory.GetParent(CurrentFolderPath);
-        if (parent != null)
-        {
-            CurrentFolderPath = parent.FullName;
-            currentIndex = -1;
-            Refresh();
-        }
+        if (parent == null)
+            return;
+        
+        CurrentFolderPath = parent.FullName;
+        currentIndex = -1;
+        Refresh();
     }
 
     public void Next()
     {
-        if (currentReplayPaths.Count == 0) return;
+        if (currentReplayEntries.Count == 0) return;
 
         currentIndex++;
-        if (currentIndex > currentReplayPaths.Count - 1)
+        if (currentIndex > currentReplayEntries.Count - 1)
             currentIndex = -1;
     }
 
     public void Previous()
     {
-        if (currentReplayPaths.Count == 0) return;
+        if (currentReplayEntries.Count == 0) return;
         
         currentIndex--;
         if (currentIndex < -1)
-            currentIndex = currentReplayPaths.Count - 1;
+            currentIndex = currentReplayEntries.Count - 1;
     }
 
     public void Select(int index)
     {
-        if (index < -1 || index >= currentReplayPaths.Count)
+        if (index < -1 || index >= currentReplayEntries.Count)
             currentIndex = -1;
         else
             currentIndex = index;
     }
-
-    public IEnumerable<string> GetSubFolders()
-        => Directory.GetDirectories(CurrentFolderPath);
 
     public class Entry
     {

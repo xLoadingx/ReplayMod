@@ -25,6 +25,9 @@ public class ReplaySettings : MonoBehaviour
 {
     private string currentPath;
     private ReplaySerializer.ReplayHeader currentHeader;
+
+    public static GameObject replaySettingsGO;
+    public static GameObject replayExplorerGO;
     
     public static TextMeshPro replayName;
     public static TextMeshPro dateText;

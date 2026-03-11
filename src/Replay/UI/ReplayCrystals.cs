@@ -15,6 +15,7 @@ using UnityEngine;
 using UnityEngine.VFX;
 using Random = UnityEngine.Random;
 using static UnityEngine.Mathf;
+using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using Main = ReplayMod.Core.Main;
 
 namespace ReplayMod.Replay.UI;
@@ -297,7 +298,7 @@ public static class ReplayCrystals
             Utilities.EaseInOut,
             () =>
             {
-                int index = ReplayFiles.explorer.currentReplayPaths.IndexOf(crystal.ReplayPath);
+                int index = ReplayFiles.explorer.currentReplayEntries.FindIndex(e => e.FullPath == crystal.ReplayPath);
                 
                 if (index != -1)
                     ReplayFiles.SelectReplay(index);
