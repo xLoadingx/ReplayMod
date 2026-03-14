@@ -44,6 +44,8 @@ public class ReplaySerializer
         public int MinPing;
         public int TargetFPS;
 
+        public bool isFavorited;
+
         public PlayerInfo[] Players;
         public StructureInfo[] Structures;
         public ScenePropInfo[] SceneProps;

@@ -1511,7 +1511,44 @@ public class Main : MelonMod
 
             collider.center = replayButton.transform.GetChild(0).transform.InverseTransformPoint(renderer.bounds.center);
             collider.size = renderer.bounds.size;
+
+            var trackedIcon = GameObject.Instantiate(
+                GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.TrackedIcon.GetGameObject(),
+                TextandIcons
+            );
+
+            trackedIcon.transform.localPosition = new Vector3(0.2455f, 0.0626f, -0.0338f);
+            trackedIcon.transform.localScale = Vector3.one * 0.002f;
+            trackedIcon.SetActive(false);
         }
+
+        var PathGO = new GameObject("Path");
+        PathGO.transform.SetParent(replayExplorerGO.transform, false);
+
+        var pathBackgroundBlock = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject()
+            .transform.GetChild(0).GetChild(0).GetChild(1), PathGO.transform);
+
+        pathBackgroundBlock.transform.localPosition = new Vector3(-0.0149f, 0.4088f, -0.0438f);
+        pathBackgroundBlock.transform.localRotation = Quaternion.Euler(270, 90, 0);
+        pathBackgroundBlock.transform.localScale = new Vector3(0.0324f, 0.2663f, 0.1098f);
+        pathBackgroundBlock.name = "Path Background Block";
+
+        var pathText = Create.NewText(":3", 1f, Color.white, Vector3.zero, Quaternion.identity);
+        pathText.name = "Path Text";
+        pathText.transform.SetParent(PathGO.transform);
+        
+        pathText.transform.localRotation = Quaternion.identity;
+        pathText.transform.localPosition = new Vector3(-0.0112f, 0.4076f, -0.0645f);
+        pathText.transform.localScale = Vector3.one * 0.95f;
+
+        var pathTMP = pathText.GetComponent<TextMeshPro>();
+        pathTMP.fontSizeMax = 0.3f;
+        pathTMP.fontSizeMin = 0.1f;
+        pathTMP.enableAutoSizing = true;
+        pathTMP.enableWordWrapping = false;
+        pathTMP.alignment = TextAlignmentOptions.Left;
+        pathTMP.text = "Replays";
+        pathTMP.color = new Color(0.3686f, 0.2863f, 0.2235f);
 
         var replayPageSelectorGO = GameObject.Instantiate(pageSelectorGO, replayExplorerGO.transform);
         replayPageSelectorGO.name = "Page Selector";

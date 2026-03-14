@@ -338,6 +338,8 @@ public static class ReplayFiles
         ApplyTMPSettings(table.indexText, 5f, 0.51f, false);
         ApplyTMPSettings(table.metadataText, 15f, 2f, true);
         table.replayNameText.GetComponent<RectTransform>().sizeDelta = new Vector2(3, 0.7f);
+        ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(1)
+            .GetComponent<RectTransform>().sizeDelta = new Vector2(0.51f, 0.11f);
         table.metadataText.enableAutoSizing = true;
     }
 
@@ -387,8 +389,14 @@ public static class ReplayFiles
         var page = explorer.GetPage();
         var tags = ReplaySettings.replayExplorerGO.GetComponentsInChildren<PlayerTag>(true);
 
-        ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(0)
+        ReplaySettings.replayExplorerGO.transform.GetChild(7).GetChild(0)
             .GetComponent<TextMeshPro>().text = Utilities.FormatPage(explorer.currentPage, explorer.pageCount);
+
+        ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(1)
+            .GetComponent<TextMeshPro>().text = Path.GetRelativePath(replayFolder, explorer.CurrentFolderPath);
+         
+        ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(1)
+            .GetComponent<RectTransform>().sizeDelta = new Vector2(0.51f, 0.11f);
         
         table.indexText.text = $"0 / {explorer.currentReplayEntries.Count(e => !e.IsFolder)}";
         table.indexText.ForceMeshUpdate();
@@ -424,6 +432,9 @@ public static class ReplayFiles
             var icon = button.transform.GetChild(1).GetChild(3).GetComponent<MeshRenderer>();
             icon.material.SetTexture("_Texture", entry.IsFolder ? folderIcon : replayIcon);
             icon.transform.localScale = Vector3.one * (entry.IsFolder ? 0.0522f : 0.0522f);
+            
+            if (!entry.IsFolder)
+                button.transform.GetChild(1).GetChild(7).gameObject.SetActive(entry.header.isFavorited);
         }
     }
     
