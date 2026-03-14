@@ -332,6 +332,17 @@ public static class Utilities
                 : new T();
         return arr;
     }
+
+    public static int GetPageCount(int itemCount, int pageSize) {
+        return (itemCount + pageSize - 1) / pageSize;
+    }
+    
+    public static string FormatPage(int currentPage, int pageCount)
+    {
+        return pageCount == 0
+            ? "0 / 0"
+            : $"{currentPage + 1} / {pageCount}";
+    }
 }
 
 [RegisterTypeInIl2Cpp]

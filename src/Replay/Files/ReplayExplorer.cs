@@ -16,6 +16,10 @@ public class ReplayExplorer
     public List<Entry> currentReplayEntries = new();
     public int currentIndex = -1;
 
+    public const int pageSize = 6;
+    public int currentPage = 0;
+    public int pageCount => Utilities.GetPageCount(currentReplayEntries.Count, pageSize);
+
     public enum SortingType
     {
         NameAscending,
@@ -117,6 +121,14 @@ public class ReplayExplorer
         };
     }
 
+    public List<Entry> GetPage()
+    {
+        return currentReplayEntries
+            .Skip(currentPage * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
     public void Enter(string path)
     {
         if (!Directory.Exists(path)) 
@@ -148,26 +160,48 @@ public class ReplayExplorer
     {
         if (currentReplayEntries.Count == 0) return;
 
-        currentIndex++;
-        if (currentIndex > currentReplayEntries.Count - 1)
-            currentIndex = -1;
+        if (GetPage().All(e => e.IsFolder)) return;
+
+        do
+        {
+            currentIndex++;
+
+            if (currentIndex > currentReplayEntries.Count - 1)
+                currentIndex = -1;
+        } while (currentIndex != -1 && currentReplayEntries[currentIndex].IsFolder);
     }
 
     public void Previous()
     {
         if (currentReplayEntries.Count == 0) return;
+
+        if (GetPage().All(e => e.IsFolder)) return;
         
-        currentIndex--;
-        if (currentIndex < -1)
-            currentIndex = currentReplayEntries.Count - 1;
+        do
+        {
+            currentIndex--;
+
+            if (currentIndex < -1)
+                currentIndex = currentReplayEntries.Count - 1;
+        } while (currentIndex != -1 && currentReplayEntries[currentIndex].IsFolder);
     }
 
-    public void Select(int index)
+    // Returns true if selection is a replay
+    public bool Select(int index)
     {
-        if (index < -1 || index >= currentReplayEntries.Count)
-            currentIndex = -1;
-        else
-            currentIndex = index;
+        if (index < 0 || index >= currentReplayEntries.Count)
+            return false;
+
+        var entry = currentReplayEntries[index];
+
+        if (entry.IsFolder)
+        {
+            Enter(entry.FullPath);
+            return false;
+        }
+
+        currentIndex = index;
+        return true;
     }
 
     public class Entry

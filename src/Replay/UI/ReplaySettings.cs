@@ -15,6 +15,7 @@ using MelonLoader;
 using ReplayMod.Core;
 using ReplayMod.Replay.Serialization;
 using UnityEngine;
+using UnityEngine.VFX;
 using static UnityEngine.Mathf;
 using Main = ReplayMod.Core.Main;
 
@@ -61,6 +62,13 @@ public class ReplaySettings : MonoBehaviour
 
     public void Show(string path)
     {
+        replaySettingsGO.SetActive(true);
+        replayExplorerGO.SetActive(false);
+
+        // var vfx = replaySettingsGO.transform.parent.parent.GetChild(2).GetComponent<VisualEffect>();
+        // vfx.enabled = true;
+        // vfx.Play();
+        
         povButton.SetActive(Main.Playback.isPlaying);
         hideLocalPlayerToggle.SetActive(Main.Playback.isPlaying);
         openControlsButton.SetActive(Main.Playback.isPlaying);
@@ -330,10 +338,7 @@ public class ReplaySettings : MonoBehaviour
 
     public static void SelectPlayerPage(int page)
     {
-        int maxPage = Max(0, playerList.Count - 1);
-        currentPlayerPage = Clamp(page, 0, maxPage);
-
-        pageNumberText.text = $"{currentPlayerPage + (playerList.Count == 0 ? 0 : 1)} / {playerList.Count}";
+        pageNumberText.text = Utilities.FormatPage(page, Utilities.GetPageCount(playerList.Count, 4));
         pageNumberText.ForceMeshUpdate();
 
         var usersOnPage = playerList.TryGetValue(currentPlayerPage, out var value) ? value : new List<(UserData, Player)>();

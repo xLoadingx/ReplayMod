@@ -315,6 +315,7 @@ public class Main : MelonMod
         
         ReplayCrystals.LoadCrystals(currentScene);
         ReplayFiles.LoadReplays();
+        ReplayFiles.RefreshUI();
         
         ReplayPlaybackControls.Close();
         
@@ -1026,6 +1027,7 @@ public class Main : MelonMod
         
         // Replay Settings
         var replaySettingsPanel = GameObject.Instantiate(playbackControls, ReplayTable.transform);
+        replaySettingsPanel.SetActive(true);
         GameObject.Destroy(replaySettingsPanel.transform.GetChild(6).gameObject);
         replaySettingsPanel.name = "Replay Settings";
         replaySettingsPanel.transform.localScale = Vector3.one;
@@ -1033,6 +1035,7 @@ public class Main : MelonMod
         GameObject.Destroy(replaySettingsPanel.GetComponent<DisposableObject>());
 
         var replaySettingsGO = new GameObject("Replay Settings");
+        replaySettingsGO.SetActive(false);
         replaySettingsGO.transform.SetParent(replaySettingsPanel.transform.GetChild(0), false);
         
         replaySettingsPanel.transform.GetChild(0).transform.localRotation = Quaternion.Euler(0, 180, 0);
@@ -1254,6 +1257,13 @@ public class Main : MelonMod
         pageNumberTextComp.horizontalAlignment = HorizontalAlignmentOptions.Center;
         pageNumberTextComp.enableWordWrapping = false;
         pageNumberTextComp.ForceMeshUpdate();
+
+        var pageSelectorGO = new GameObject("Page Selector Buttons");
+        pageSelectorGO.transform.SetParent(slideOutPanel.transform, false);
+
+        pageNumberText.transform.SetParent(pageSelectorGO.transform, true);
+        nextPageButton.transform.SetParent(pageSelectorGO.transform, true);
+        previousPageButton.transform.SetParent(pageSelectorGO.transform, true);
         
         var timelineRS = GameObject.Instantiate(timeline, replaySettingsGO.transform);
         timelineRS.name = "Timeline";
@@ -1440,6 +1450,85 @@ public class Main : MelonMod
         replayExplorerGO.transform.SetParent(replaySettingsPanel.transform.GetChild(0), false);
 
         ReplaySettings.replayExplorerGO = replayExplorerGO;
+
+        ReplayFiles.folderIcon = bundle.LoadAsset<Texture2D>("FolderIcon");
+        ReplayFiles.replayIcon = bundle.LoadAsset<Texture2D>("RenameIcon");
+        
+        for (int i = 0; i <= 5; i++)
+        {
+            var replayButton = GameObject.Instantiate(
+                GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject(),
+                replayExplorerGO.transform
+            );
+
+            replayButton.name = $"Selection_{i}";
+            replayButton.transform.localPosition = new Vector3(-0.0148f, 0.293f - (0.0935f * i), -0.0418f);
+
+            var meshes = replayButton.transform.GetChild(0).GetChild(0);
+            var TextandIcons = replayButton.transform.GetChild(0).GetChild(1);
+
+            for (int j = 0; j < meshes.childCount; j++)
+            {
+                if (j != 0 && j != 1 && j != 3)
+                    meshes.GetChild(j).gameObject.SetActive(false);
+            }
+
+            for (int j = 0; j < TextandIcons.childCount; j++)
+            {
+                if (j != 0 && j != 3)
+                    TextandIcons.GetChild(j).gameObject.SetActive(false);
+            }
+
+            meshes.GetChild(0).localPosition = new Vector3(-0.2231f, 0.0344f, -0.0091f);
+            
+            meshes.GetChild(1).localPosition = new Vector3(0, 0.0356f, -0.0039f);
+            meshes.GetChild(1).localScale = new Vector3(0.0324f, 0.2663f, 0.1858f);
+
+            meshes.GetChild(3).localPosition = new Vector3(0.0318f, 0.0341f, -0.0095f);
+            meshes.GetChild(3).localScale = new Vector3(0.0324f, 0.2165f, 0.1285f);
+            
+            GameObject.Destroy(meshes.GetChild(7).gameObject);
+
+            TextandIcons.GetChild(0).localPosition = new Vector3(-0.1715f, 0.0113f, -0.0292f);
+            var tmp = TextandIcons.GetChild(0).GetComponent<TextMeshPro>();
+            var rectTransform = TextandIcons.GetChild(0).GetComponent<RectTransform>();
+            tmp.fontSizeMin = 0.2f;
+            tmp.alignment = TextAlignmentOptions.Left;
+            rectTransform.sizeDelta = new Vector2(0.42f, 0.0502f);
+
+            TextandIcons.GetChild(3).localPosition = new Vector3(-0.2241f, 0.035f, -0.0288f);
+            TextandIcons.GetChild(3).localScale = Vector3.one * 0.0422f;
+            
+            replayButton.GetComponent<PlayerTag>().RemovePressedCallback();
+
+            var haptics = ScriptableObject.CreateInstance<InteractionHapticsSignal>();
+            haptics.duration = 0.05f;
+            haptics.intensity = 0.5f;
+            replayButton.transform.GetChild(0).GetComponent<InteractionButton>().onPressedHaptics = haptics;
+        }
+
+        var replayPageSelectorGO = GameObject.Instantiate(pageSelectorGO, replayExplorerGO.transform);
+        replayPageSelectorGO.name = "Page Selector";
+        
+        replayPageSelectorGO.transform.localPosition = new Vector3(-0.0138f, 0.297f, -0.0365f);
+        replayPageSelectorGO.transform.localScale = Vector3.one * 1.3f;
+
+        var nextReplayPageBtn = replayPageSelectorGO.transform.GetChild(1).GetChild(0).GetComponent<InteractionButton>();
+        var previousReplayPageBtn = replayPageSelectorGO.transform.GetChild(2).GetChild(0).GetComponent<InteractionButton>();
+        
+        nextReplayPageBtn.onPressed.RemoveAllListeners();
+        nextReplayPageBtn.onPressed.AddListener((UnityAction)(() =>
+        {
+            ReplayFiles.explorer.currentPage = Clamp(++ReplayFiles.explorer.currentPage, 0, ReplayFiles.explorer.pageCount - 1);
+            ReplayFiles.RefreshUI();
+        }));
+        
+        previousReplayPageBtn.onPressed.RemoveAllListeners();
+        previousReplayPageBtn.onPressed.AddListener((UnityAction)(() =>
+        {
+            ReplayFiles.explorer.currentPage = Clamp(--ReplayFiles.explorer.currentPage, 0, ReplayFiles.explorer.pageCount - 1);
+            ReplayFiles.RefreshUI();
+        }));
         
         GameObject.DontDestroyOnLoad(ReplayTable);
         GameObject.DontDestroyOnLoad(crystalPrefab);

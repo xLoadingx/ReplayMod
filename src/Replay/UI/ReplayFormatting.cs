@@ -47,6 +47,9 @@ public class ReplayFormatting
     {
         var name = alternativeName ?? Path.GetFileNameWithoutExtension(path);
 
+        if (header == null)
+            return name;
+
         var pattern = name.StartsWith("Replay", StringComparison.OrdinalIgnoreCase) && showTitle
             ? header.Title
             : name;

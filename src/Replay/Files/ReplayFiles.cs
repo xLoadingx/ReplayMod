@@ -3,6 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Il2CppRUMBLE.Interactions.InteractionBase;
+using Il2CppRUMBLE.Players.Subsystems;
+using Il2CppRUMBLE.Social.Phone;
 using Il2CppTMPro;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -10,6 +13,7 @@ using ReplayMod.Core;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using UnityEngine;
+using UnityEngine.Events;
 using static UnityEngine.Mathf;
 using Main = ReplayMod.Core.Main;
 
@@ -17,11 +21,13 @@ namespace ReplayMod.Replay.Files;
 
 public static class ReplayFiles
 {
-    public static string replayFolder = $"{MelonEnvironment.UserDataDirectory}/ReplayMod";
+    public static string replayFolder = $@"{MelonEnvironment.UserDataDirectory}\ReplayMod";
     
     public static ReplayTable table;
-    public static bool metadataLerping = false;
     public static bool metadataHidden = false;
+
+    private static object metadataHeightRoutine;
+    private static object metadataScaleRoutine;
     
     public static FileSystemWatcher replayWatcher;
     public static FileSystemWatcher metadataFormatWatcher;
@@ -29,6 +35,9 @@ public static class ReplayFiles
     public static bool suppressWatcher;
 
     public static ReplayExplorer explorer;
+
+    public static Texture2D folderIcon;
+    public static Texture2D replayIcon;
 
     public static ReplaySerializer.ReplayHeader currentHeader = null;
 
@@ -178,10 +187,15 @@ public static class ReplayFiles
     
     public static void HideMetadata()
     {
-        if (table.metadataText == null || metadataLerping) return;
+        if (table.metadataText == null || metadataHidden) return;
 
-        metadataLerping = true;
         metadataHidden = true;
+        
+        if (metadataHeightRoutine != null)
+            MelonCoroutines.Stop(metadataHeightRoutine);
+
+        if (metadataScaleRoutine != null)
+            MelonCoroutines.Stop(metadataScaleRoutine);
         
         MelonCoroutines.Start(Utilities.LerpValue(
             () => table.desiredMetadataTextHeight,
@@ -198,16 +212,21 @@ public static class ReplayFiles
             Vector3.Lerp,
             Vector3.zero,
             1.3f,
-            Utilities.EaseInOut,
-            () => metadataLerping = false
+            Utilities.EaseInOut
         ));
     }
 
     public static void ShowMetadata()
     {
-        if (table.metadataText == null || metadataLerping) return;
+        if (table.metadataText == null || !metadataHidden) return;
 
-        metadataLerping = true;
+        metadataHidden = false;
+        
+        if (metadataHeightRoutine != null)
+            MelonCoroutines.Stop(metadataHeightRoutine);
+
+        if (metadataScaleRoutine != null)
+            MelonCoroutines.Stop(metadataScaleRoutine);
         
         MelonCoroutines.Start(Utilities.LerpValue(
             () => table.desiredMetadataTextHeight,
@@ -224,13 +243,9 @@ public static class ReplayFiles
             Vector3.Lerp,
             Vector3.one * 0.25f,
             1.3f,
-            Utilities.EaseInOut,
-            () => metadataLerping = false
+            Utilities.EaseInOut
         ));
-        
-        metadataHidden = false;
     }
-    
 
     public static string BuildPlayerLine(PlayerInfo[] players, int maxNames)
     {
@@ -266,8 +281,11 @@ public static class ReplayFiles
             return;
 
         var path = explorer.CurrentReplayPath;
-        var count = explorer.currentReplayEntries.Count;
+        var count = explorer.currentReplayEntries.Count(e => !e.IsFolder);
         var index = explorer.currentIndex;
+        var shownIndex = index < 0 
+            ? 0 
+            : explorer.currentReplayEntries.Take(index + 1).Count(e => !e.IsFolder);
 
         ReplaySerializer.ReplayHeader header = null;
 
@@ -276,15 +294,12 @@ public static class ReplayFiles
             currentHeader = null;
 
             table.replayNameText.text = "No Replay Selected";
-            table.indexText.text = $"(0 / {count})";
             HideMetadata();
-            Main.instance.replaySettings.gameObject.SetActive(false);
+            ReplaySettings.replayExplorerGO.SetActive(true);
+            ReplaySettings.replaySettingsGO.SetActive(false);
         }
         else
         {
-            int shownIndex = index < 0 ? 0 : index + 1;
-            table.indexText.text = $"({shownIndex} / {count})";
-
             try
             {
                 header = explorer.currentlySelectedEntry.header;
@@ -298,7 +313,6 @@ public static class ReplayFiles
                 table.metadataText.text = ReplayFormatting.FormatReplayString(format, header);
 
                 ShowMetadata();
-                Main.instance.replaySettings.gameObject.SetActive(true);
             }
             catch (Exception e)
             {
@@ -308,12 +322,14 @@ public static class ReplayFiles
                 currentHeader = null;
 
                 table.replayNameText.text = "Invalid Replay";
-                table.indexText.text = $"(0 / {count})";
                 HideMetadata();
-                Main.instance.replaySettings.gameObject.SetActive(false);
+                ReplaySettings.replayExplorerGO.SetActive(true);
+                ReplaySettings.replaySettingsGO.SetActive(false);
             }
         }
 
+        table.indexText.text = $"{shownIndex} / {count}";
+        
         ReplayAPI.ReplaySelectedInternal(header, path);
         
         table.replayNameText.ForceMeshUpdate();
@@ -329,7 +345,19 @@ public static class ReplayFiles
     {
         var previousGuid = currentHeader?.Guid;
 
+        explorer.currentPage = 0;
         explorer.Refresh();
+
+        if (explorer.pageCount == 0)
+        {
+            explorer.Select(-1);
+            ReplaySettings.replayExplorerGO.SetActive(true);
+            ReplaySettings.replaySettingsGO.SetActive(false);
+            ReplaySettings.replayExplorerGO.transform.parent.parent.gameObject.SetActive(false);
+            return;
+        }
+            
+        ReplaySettings.replayExplorerGO.transform.parent.parent.gameObject.SetActive(true);
 
         if (!string.IsNullOrEmpty(previousGuid))
         {
@@ -346,15 +374,65 @@ public static class ReplayFiles
         else
         {
             explorer.Select(-1);
+            ReplaySettings.replayExplorerGO.SetActive(true);
+            ReplaySettings.replaySettingsGO.SetActive(false);
         }
         
+        RefreshUI();
         SelectReplayFromExplorer();
+    }
+    
+    public static void RefreshUI()
+    {
+        var page = explorer.GetPage();
+        var tags = ReplaySettings.replayExplorerGO.GetComponentsInChildren<PlayerTag>(true);
+
+        ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(0)
+            .GetComponent<TextMeshPro>().text = Utilities.FormatPage(explorer.currentPage, explorer.pageCount);
+        
+        table.indexText.text = $"0 / {explorer.currentReplayEntries.Count(e => !e.IsFolder)}";
+        table.indexText.ForceMeshUpdate();
+        
+        for (int i = 0; i < tags.Length; i++)
+        {
+            var index = i;
+            var tag = tags[index];
+            var button = tag.transform.GetChild(0).GetComponent<InteractionButton>();
+
+            if (index >= page.Count)
+            {
+                tag.gameObject.SetActive(false);
+                continue;
+            }
+
+            tag.gameObject.SetActive(true);
+
+            var entry = page[index];
+            var globalIndex = explorer.currentReplayEntries.IndexOf(entry);
+
+            // TODO: Make special button shape for the ".." button specifically
+            // Also add title and full path stuff.
+            tag.username.text = ReplayFormatting.GetReplayDisplayName(entry.FullPath, entry.header, entry.Name);
+            tag.username.ForceMeshUpdate();
+            
+            button.OnPressed.RemoveAllListeners();
+            button.OnPressed.AddListener((UnityAction)(() =>
+            {
+                SelectReplay(globalIndex);
+            }));
+
+            var icon = button.transform.GetChild(1).GetChild(3).GetComponent<MeshRenderer>();
+            icon.material.SetTexture("_Texture", entry.IsFolder ? folderIcon : replayIcon);
+            icon.transform.localScale = Vector3.one * (entry.IsFolder ? 0.0522f : 0.0522f);
+        }
     }
     
     public static void SelectReplay(int index)
     {
-        explorer.Select(index);
-        SelectReplayFromExplorer();
+        if (explorer.Select(index))
+            SelectReplayFromExplorer();
+        else
+            RefreshUI();
     }
 
     public static void NextReplay()
@@ -369,7 +447,6 @@ public static class ReplayFiles
         SelectReplayFromExplorer();
     }
     
-
     public static void LoadReplays()
     {
         explorer.Refresh();
