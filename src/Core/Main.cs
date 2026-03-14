@@ -1505,6 +1505,12 @@ public class Main : MelonMod
             haptics.duration = 0.05f;
             haptics.intensity = 0.5f;
             replayButton.transform.GetChild(0).GetComponent<InteractionButton>().onPressedHaptics = haptics;
+
+            var renderer = replayButton.transform.GetChild(0).GetChild(0).GetChild(1).GetComponent<MeshRenderer>();
+            var collider = replayButton.transform.GetChild(0).GetComponent<BoxCollider>();
+
+            collider.center = replayButton.transform.GetChild(0).transform.InverseTransformPoint(renderer.bounds.center);
+            collider.size = renderer.bounds.size;
         }
 
         var replayPageSelectorGO = GameObject.Instantiate(pageSelectorGO, replayExplorerGO.transform);
