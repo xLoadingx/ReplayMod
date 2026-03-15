@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ReplayMod.Core;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using static UnityEngine.Mathf;
@@ -54,7 +55,8 @@ public class ReplayExplorer
 
     public void Refresh()
     {
-        currentReplayEntries = GetEntries();
+        Enum.TryParse((string)Main.instance.ExplorerSorting.SavedValue, true, out SortingType sortingType);
+        currentReplayEntries = GetEntries(sortingType);
         
         currentIndex = Clamp(currentIndex, -1, currentReplayEntries.Count - 1);
     }
@@ -105,7 +107,7 @@ public class ReplayExplorer
 
     private List<Entry> SortFiles(List<Entry> files, SortingType sorting)
     {
-        return sorting switch
+        var newFiles = sorting switch
         {
             SortingType.NameAscending => files.OrderBy(f => f.Name).ToList(),
             SortingType.NameDescending => files.OrderByDescending(f => f.Name).ToList(),
@@ -121,6 +123,10 @@ public class ReplayExplorer
 
             _ => files
         };
+
+        newFiles = newFiles.OrderByDescending(f => f.header.isFavorited).ToList();
+        
+        return newFiles;
     }
 
     public List<Entry> GetPage()

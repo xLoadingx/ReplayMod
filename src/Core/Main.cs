@@ -45,6 +45,14 @@ public static class BuildInfo
     public const string FormatVersion = "1.0.0";
 }
 
+public class Validation : ValidationParameters
+{
+    public override bool DoValidation(string Input)
+    {
+        return Enum.TryParse(typeof(ReplayExplorer.SortingType), Input, true, out _);
+    }
+}
+
 public class Main : MelonMod
 {
     // Runtime
@@ -102,6 +110,10 @@ public class Main : MelonMod
     public ModSetting<bool> StopReplayWhenDone = new();
     public ModSetting<bool> PlaybackControlsFollow = new();
     public ModSetting<bool> DestroyControlsOnPunch = new();
+    
+    // Replay Explorer
+    public ModSetting<string> ExplorerSorting = new();
+    public ModSetting<bool> FavoritesFirst = new();
     
     // Replay Buffer
     public ModSetting<bool> ReplayBufferEnabled = new();
@@ -430,6 +442,28 @@ public class Main : MelonMod
         playbackFolder.AddSetting(StopReplayWhenDone);
         playbackFolder.AddSetting(PlaybackControlsFollow);
         playbackFolder.AddSetting(DestroyControlsOnPunch);
+
+        var replayExplorerFolder = replayMod.AddFolder("Replay Explorer", "Settings for the replay explorer.");
+
+        string sortingOptionDesc =
+            "The sorting option for the list of replays.\n" +
+            "Available options:\n" +
+            "NameAscending\n" +
+            "NameDescending\n" +
+            "DateNewestFirst\n" +
+            "DateOldestFirst\n" +
+            "DurationLongestFirst\n" +
+            "DurationShortestFirst\n" +
+            "MapAscending\n" +
+            "PlayerCountDescending";
+        
+        ExplorerSorting = replayMod.AddToList("Sorting Option", "DateNewestFirst", sortingOptionDesc, new Tags());
+        FavoritesFirst = replayMod.AddToList("Put Favorites First", true, 0, "Toggles whether favorited replays should always come first in the list.", new Tags());
+
+        replayMod.AddValidation("Sorting Option", new Validation());
+        
+        replayExplorerFolder.AddSetting(ExplorerSorting);
+        replayExplorerFolder.AddSetting(FavoritesFirst);
         
         var replayBufferFolder = replayMod.AddFolder("Replay Buffer", "Settings for the replay buffer used to save recent gameplay.");
 
