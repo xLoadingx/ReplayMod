@@ -16,7 +16,6 @@ using ReplayMod.Core;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using UnityEngine;
-using UnityEngine.VFX;
 using static UnityEngine.Mathf;
 using Main = ReplayMod.Core.Main;
 
@@ -227,8 +226,7 @@ public class ReplaySettings : MonoBehaviour
         currentPath = newPath;
         Show(currentPath);
 
-        ReplayFiles.explorer.Refresh();
-        ReplayFiles.RefreshUI();
+        ReplayFiles.ReloadReplays();
 
         ReplayAPI.ReplayRenamedInternal(currentHeader, newPath);
 

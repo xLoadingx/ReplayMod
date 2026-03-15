@@ -49,7 +49,13 @@ public class Validation : ValidationParameters
 {
     public override bool DoValidation(string Input)
     {
-        return Enum.TryParse(typeof(ReplayExplorer.SortingType), Input, true, out _);
+        if (Enum.TryParse(typeof(ReplayExplorer.SortingType), Input, true, out _))
+        {
+            Main.ReplayError();
+            return true;
+        }
+        
+        return false;
     }
 }
 
@@ -113,6 +119,7 @@ public class Main : MelonMod
     
     // Replay Explorer
     public ModSetting<string> ExplorerSorting = new();
+    public ModSetting<bool> SortingDirection = new();
     public ModSetting<bool> FavoritesFirst = new();
     
     // Replay Buffer
@@ -448,21 +455,16 @@ public class Main : MelonMod
         string sortingOptionDesc =
             "The sorting option for the list of replays.\n" +
             "Available options:\n" +
-            "NameAscending\n" +
-            "NameDescending\n" +
-            "DateNewestFirst\n" +
-            "DateOldestFirst\n" +
-            "DurationLongestFirst\n" +
-            "DurationShortestFirst\n" +
-            "MapAscending\n" +
-            "PlayerCountDescending";
+            string.Join("\n", Enum.GetNames(typeof(ReplayExplorer.SortingType)));
         
         ExplorerSorting = replayMod.AddToList("Sorting Option", "DateNewestFirst", sortingOptionDesc, new Tags());
+        SortingDirection = replayMod.AddToList("Reverse Sorting", false, 0, "If enabled, reverses the sort order.", new Tags());
         FavoritesFirst = replayMod.AddToList("Put Favorites First", true, 0, "Toggles whether favorited replays should always come first in the list.", new Tags());
 
         replayMod.AddValidation("Sorting Option", new Validation());
         
         replayExplorerFolder.AddSetting(ExplorerSorting);
+        replayExplorerFolder.AddSetting(SortingDirection);
         replayExplorerFolder.AddSetting(FavoritesFirst);
         
         var replayBufferFolder = replayMod.AddFolder("Replay Buffer", "Settings for the replay buffer used to save recent gameplay.");
@@ -557,6 +559,10 @@ public class Main : MelonMod
             if (!IsValidBindingList(value))
                 ReplayError($"'{value}' is not a valid binding (Right Controller).");
         };
+        
+        ExplorerSorting.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
+        SortingDirection.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
+        FavoritesFirst.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
         
         replayMod.GetFromFile();
         
@@ -1505,8 +1511,7 @@ public class Main : MelonMod
 
             ReplaySettings.favoritedIcon.SetActive(!isFavorited);
 
-            ReplayFiles.explorer.Refresh();
-            ReplayFiles.RefreshUI();
+            ReplayFiles.ReloadReplays();
         }));
 
         ReplaySettings.replaySettingsGO = replaySettingsGO;

@@ -1176,6 +1176,7 @@ public class PlayerInfo
     public PlayerMeasurement Measurement;
 
     public bool WasHost;
+    public bool IsLocal;
 
     public PlayerInfo(Player copyPlayer)
     {
@@ -1188,6 +1189,7 @@ public class PlayerInfo
         EquippedShiftStones = player.EquipedShiftStones.ToArray();
         Measurement = player.PlayerMeasurement;
         WasHost = (player.GeneralData.ActorNo == PhotonNetwork.MasterClient?.ActorNumber);
+        IsLocal = player.GeneralData.PlayFabMasterId == Main.LocalPlayer.Data.GeneralData.PlayFabMasterId;
     }
     
     [JsonConstructor]

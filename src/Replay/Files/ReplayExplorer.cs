@@ -23,17 +23,12 @@ public class ReplayExplorer
 
     public enum SortingType
     {
-        NameAscending,
-        NameDescending,
-        
-        DateNewestFirst,
-        DateOldestFirst,
-        
-        DurationLongestFirst,
-        DurationShortestFirst,
-        
-        MapAscending,
-        PlayerCountDescending
+        Name,
+        Date,
+        Duration,
+        Map,
+        PlayerCount,
+        OpponentBP,
     }
 
     public string CurrentReplayPath =>
@@ -61,7 +56,7 @@ public class ReplayExplorer
         currentIndex = Clamp(currentIndex, -1, currentReplayEntries.Count - 1);
     }
 
-    public List<Entry> GetEntries(SortingType sorting = SortingType.DateNewestFirst)
+    public List<Entry> GetEntries(SortingType sorting = SortingType.Date)
     {
         var folders = Directory
             .GetDirectories(CurrentFolderPath)
@@ -107,24 +102,27 @@ public class ReplayExplorer
 
     private List<Entry> SortFiles(List<Entry> files, SortingType sorting)
     {
+        if ((bool)Main.instance.FavoritesFirst.SavedValue)
+            files = files.OrderByDescending(f => f.header.isFavorited).ToList();
+        
         var newFiles = sorting switch
         {
-            SortingType.NameAscending => files.OrderBy(f => f.Name).ToList(),
-            SortingType.NameDescending => files.OrderByDescending(f => f.Name).ToList(),
-
-            SortingType.DateNewestFirst => files.OrderByDescending(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
-            SortingType.DateOldestFirst => files.OrderBy(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
-
-            SortingType.DurationLongestFirst => files.OrderByDescending(f => f.header.Duration).ToList(),
-            SortingType.DurationShortestFirst => files.OrderBy(f => f.header.Duration).ToList(),
-
-            SortingType.MapAscending => files.OrderBy(f => ReplayFormatting.GetMapName(header: f.header), StringComparer.OrdinalIgnoreCase).ToList(),
-            SortingType.PlayerCountDescending => files.OrderByDescending(f => f.header.Players?.Length).ToList(),
+            SortingType.Name => files.OrderBy(f => f.Name).ToList(),
+            SortingType.Date => files.OrderByDescending(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
+            SortingType.Duration => files.OrderByDescending(f => f.header.Duration).ToList(),
+            SortingType.Map => files.OrderBy(f => ReplayFormatting.GetMapName(header: f.header), StringComparer.OrdinalIgnoreCase).ToList(),
+            SortingType.PlayerCount => files.OrderByDescending(f => f.header.Players?.Length).ToList(),
+            SortingType.OpponentBP => files.OrderByDescending(f => f.header.Players
+                .Where(p => !p.IsLocal)
+                .Select(p => p.BattlePoints)
+                .DefaultIfEmpty(0).Max()
+            ).ToList(),
 
             _ => files
         };
 
-        newFiles = newFiles.OrderByDescending(f => f.header.isFavorited).ToList();
+        if ((bool)Main.instance.SortingDirection.SavedValue)
+            newFiles.Reverse();
         
         return newFiles;
     }

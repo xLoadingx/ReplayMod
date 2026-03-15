@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Il2CppRUMBLE.Interactions.InteractionBase;
-using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Social.Phone;
 using Il2CppTMPro;
 using MelonLoader;
@@ -197,7 +196,7 @@ public static class ReplayFiles
         if (metadataScaleRoutine != null)
             MelonCoroutines.Stop(metadataScaleRoutine);
         
-        MelonCoroutines.Start(Utilities.LerpValue(
+        metadataHeightRoutine = MelonCoroutines.Start(Utilities.LerpValue(
             () => table.desiredMetadataTextHeight,
             v => table.desiredMetadataTextHeight = v,
             Lerp,
@@ -206,7 +205,7 @@ public static class ReplayFiles
             Utilities.EaseInOut
         ));
 
-        MelonCoroutines.Start(Utilities.LerpValue(
+        metadataScaleRoutine = MelonCoroutines.Start(Utilities.LerpValue(
             () => table.metadataText.transform.localScale,
             v => table.metadataText.transform.localScale = v,
             Vector3.Lerp,
@@ -371,11 +370,7 @@ public static class ReplayFiles
         {
             int newIndex = explorer.currentReplayEntries
                 .Select((entry, i) => new { entry, i })
-                .FirstOrDefault(x =>
-                {
-                    var header = ReplayArchive.GetManifest(x.entry.FullPath);
-                    return header.Guid == previousGuid;
-                })?.i ?? -1;
+                .FirstOrDefault(x => x.entry.header?.Guid == previousGuid)?.i ?? -1;
 
             explorer.Select(newIndex);
         }
@@ -392,6 +387,9 @@ public static class ReplayFiles
     
     public static void RefreshUI()
     {
+        if (ReplaySettings.replayExplorerGO == null)
+            return;
+        
         var page = explorer.GetPage();
         var tags = ReplaySettings.replayExplorerGO.GetComponentsInChildren<PlayerTag>(true);
 
