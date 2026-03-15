@@ -13,6 +13,7 @@ using Il2CppRUMBLE.Social.Phone;
 using Il2CppTMPro;
 using MelonLoader;
 using ReplayMod.Core;
+using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -34,6 +35,8 @@ public class ReplaySettings : MonoBehaviour
     public static TextMeshPro dateText;
     public static TextMeshPro renameInstructions;
     public static TextMeshPro durationComp;
+    
+    public static GameObject favoritedIcon;
     
     public static InteractionButton renameButton;
     public static InteractionButton deleteButton;
@@ -89,6 +92,8 @@ public class ReplaySettings : MonoBehaviour
         
         slideOutPanel.SetActive(false);
         slideOutPanel.transform.localPosition = new Vector3(0.1709f, 0.5273f, 0.16f);
+
+        favoritedIcon.SetActive(currentHeader.isFavorited);
 
         timeline.transform.GetChild(0).GetComponent<TimelineScrubber>().header = currentHeader;
         timeline.GetComponent<MeshRenderer>().material.SetFloat("_BP_Target", currentHeader.Duration * 1000f);
@@ -222,12 +227,15 @@ public class ReplaySettings : MonoBehaviour
         currentPath = newPath;
         Show(currentPath);
 
+        ReplayFiles.explorer.Refresh();
+        ReplayFiles.RefreshUI();
+
         ReplayAPI.ReplayRenamedInternal(currentHeader, newPath);
 
         AudioManager.instance.Play(ReplayCache.SFX["Call_PoseGhost_MovePerformed"], transform.position);
     }
     
-        public static Dictionary<int, List<(UserData, Player)>> PaginateReplay(
+    public static Dictionary<int, List<(UserData, Player)>> PaginateReplay(
         ReplaySerializer.ReplayHeader header, 
         ReplayPlayback.Clone[] PlaybackPlayers, 
         bool includeLocalPlayer = true
@@ -321,6 +329,9 @@ public class ReplaySettings : MonoBehaviour
         
         AudioManager.instance.Play(ReplayCache.SFX[active ? "Call_Phone_ScreenUp" : "Call_Phone_ScreenDown"], slideOutPanel.transform.localPosition);
 
+        Vector3 startPosition = !active ? new Vector3(-0.65686f, 0.3898f, 0.0134f) : new Vector3(-0.0778f, 0.3898f, 0.0134f);
+        slideOutPanel.transform.localPosition = startPosition;
+        
         Vector3 position = active ? new Vector3(-0.65686f, 0.3898f, 0.0134f) : new Vector3(-0.0778f, 0.3898f, 0.0134f);
         MelonCoroutines.Start(Utilities.LerpValue(
             () => slideOutPanel.transform.localPosition,

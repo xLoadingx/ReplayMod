@@ -297,6 +297,9 @@ public static class ReplayFiles
             HideMetadata();
             ReplaySettings.replayExplorerGO.SetActive(true);
             ReplaySettings.replaySettingsGO.SetActive(false);
+
+            explorer.Refresh();
+            RefreshUI();
         }
         else
         {
@@ -325,6 +328,9 @@ public static class ReplayFiles
                 HideMetadata();
                 ReplaySettings.replayExplorerGO.SetActive(true);
                 ReplaySettings.replaySettingsGO.SetActive(false);
+
+                explorer.Refresh();
+                RefreshUI();
             }
         }
 
@@ -394,9 +400,17 @@ public static class ReplayFiles
 
         ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(1)
             .GetComponent<TextMeshPro>().text = Path.GetRelativePath(replayFolder, explorer.CurrentFolderPath);
-         
-        ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(1)
-            .GetComponent<RectTransform>().sizeDelta = new Vector2(0.51f, 0.11f);
+
+        // Stupid size delta gets reset after calling this so I have to
+        // make a *whole* coroutine for it...
+        MelonCoroutines.Start(ApplySizeDelta());
+
+        IEnumerator ApplySizeDelta() {
+            yield return null;
+            
+            ReplaySettings.replayExplorerGO.transform.GetChild(6).GetChild(1)
+                .GetComponent<RectTransform>().sizeDelta = new Vector2(0.51f, 0.11f);
+        }
         
         table.indexText.text = $"0 / {explorer.currentReplayEntries.Count(e => !e.IsFolder)}";
         table.indexText.ForceMeshUpdate();
@@ -418,16 +432,11 @@ public static class ReplayFiles
             var entry = page[index];
             var globalIndex = explorer.currentReplayEntries.IndexOf(entry);
 
-            // TODO: Make special button shape for the ".." button specifically
-            // Also add title and full path stuff.
             tag.username.text = ReplayFormatting.GetReplayDisplayName(entry.FullPath, entry.header, entry.Name);
             tag.username.ForceMeshUpdate();
             
             button.OnPressed.RemoveAllListeners();
-            button.OnPressed.AddListener((UnityAction)(() =>
-            {
-                SelectReplay(globalIndex);
-            }));
+            button.OnPressed.AddListener((UnityAction)(() => { SelectReplay(globalIndex); }));
 
             var icon = button.transform.GetChild(1).GetChild(3).GetComponent<MeshRenderer>();
             icon.material.SetTexture("_Texture", entry.IsFolder ? folderIcon : replayIcon);

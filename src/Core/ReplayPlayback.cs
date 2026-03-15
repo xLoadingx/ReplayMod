@@ -305,7 +305,13 @@ public class ReplayPlayback
 
             ReplayRoot.transform.position = Vector3.zero;
 
-            Main.LocalPlayer.Controller.transform.GetChild(6).gameObject.SetActive(false);
+            MelonCoroutines.Start(DisableNameplate());
+            
+            IEnumerator DisableNameplate()
+            {
+                yield return null;
+                Main.LocalPlayer?.Controller?.transform.GetChild(6).gameObject.SetActive(false);
+            }
             
             ReplayAPI.ReplayStartedInternal(currentReplay);
         }));
@@ -1365,6 +1371,7 @@ public class ReplayPlayback
             povPlayer.Controller.transform.GetChild(4).gameObject.SetActive(false);
             
             Main.LocalPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
+            Main.LocalPlayer.Controller.PlayerNameTag.gameObject.SetActive(false);
             povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = true;
             
             foreach (var renderer in ReplayPlaybackControls.playbackControls.GetComponentsInChildren<Renderer>(true))

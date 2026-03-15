@@ -91,22 +91,25 @@ public class ReplayArchive
     public static void WriteManifest(string replayPath, ReplaySerializer.ReplayHeader header)
     {
         ReplayFiles.suppressWatcher = true;
-        
-        using var fs = new FileStream(replayPath, FileMode.Open, FileAccess.ReadWrite);
-        using var zip = new ZipArchive(fs, ZipArchiveMode.Update);
-        
-        var manifestEntry = zip.GetEntry("manifest.json");
 
-        manifestEntry?.Delete();
+        try
+        {
+            using var fs = new FileStream(replayPath, FileMode.Open, FileAccess.ReadWrite);
+            using var zip = new ZipArchive(fs, ZipArchiveMode.Update);
 
-        var newEntry = zip.CreateEntry("manifest.json", CompressionLevel.Optimal);
-        
-        using var writer = new StreamWriter(newEntry.Open());
-        writer.Write(JsonConvert.SerializeObject(
-            header,
-            Formatting.Indented
-        ));
-        
-        ReplayFiles.suppressWatcher = false;
+            zip.GetEntry("manifest.json")?.Delete();
+
+            var newEntry = zip.CreateEntry("manifest.json", CompressionLevel.Optimal);
+
+            using var writer = new StreamWriter(newEntry.Open());
+            writer.Write(JsonConvert.SerializeObject(
+                header,
+                Formatting.Indented
+            ));
+        }
+        finally
+        {
+            ReplayFiles.suppressWatcher = false; 
+        }
     }
 }

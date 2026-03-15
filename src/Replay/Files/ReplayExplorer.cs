@@ -83,6 +83,8 @@ public class ReplayExplorer
             })
             .ToList();
 
+        files = SortFiles(files, sorting);
+
         var entries = new List<Entry>();
 
         if (CurrentFolderPath != RootPath)

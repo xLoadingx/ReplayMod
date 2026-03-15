@@ -13,6 +13,7 @@ using Il2CppTMPro;
 using MelonLoader;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Files;
+using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using RumbleModdingAPI.RMAPI;
 using RumbleModUI;
@@ -1430,6 +1431,50 @@ public class Main : MelonMod
         renameButton.transform.GetChild(2).localPosition = new Vector3(0.0171f, 0.0713f, 0);
         GameObject.Destroy(renameButton.transform.GetChild(0).GetChild(3).gameObject);
 
+        var favoriteButton = GameObject.Instantiate(
+            GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.SettingsScreen.PreReportSection.ReportPlayerButton.GetGameObject(),
+            replaySettingsGO.transform
+        );
+
+        favoriteButton.name = "Favorite Button";
+
+        favoriteButton.transform.localPosition = new Vector3(-0.2489f, -0.0529f, -0.028f);
+        favoriteButton.transform.localRotation = Quaternion.Euler(0, 270, 90);
+        favoriteButton.transform.localScale = Vector3.one * 0.35f;
+        favoriteButton.transform.GetChild(2).gameObject.SetActive(false);
+
+        var favoriteButtonComp = favoriteButton.transform.GetChild(0).GetComponent<InteractionButton>();
+        favoriteButtonComp.enabled = true;
+
+        var trackedIcon = GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.TrackedIcon.GetGameObject();
+        var favIcon = trackedIcon.GetComponent<SpriteRenderer>().sprite.texture;
+        var favRenderer = favoriteButtonComp.transform.GetChild(5).GetComponent<MeshRenderer>();
+        favRenderer.material.SetTexture("_Texture", favIcon);
+        favRenderer.transform.localScale = Vector3.one * 0.0708f;
+
+        var replayFavIcon = GameObject.Instantiate(trackedIcon, replaySettingsGO.transform);
+        replayFavIcon.name = "Favorited Icon";
+        replayFavIcon.transform.localPosition = new Vector3(-0.3248f, 0.5046f, -0.047f);
+        replayFavIcon.transform.localRotation = Quaternion.Euler(0, 0, 22.0727f);
+        replayFavIcon.transform.localScale = Vector3.one * 0.003f;
+        replayFavIcon.SetActive(false);
+
+        favoriteButtonComp.useLongPress = false;
+        favoriteButtonComp.onPressed.RemoveAllListeners();
+        favoriteButtonComp.onPressed.AddListener((UnityAction)(() =>
+        {
+            var currentEntry = ReplayFiles.explorer.currentReplayEntries[ReplayFiles.explorer.currentIndex];
+            bool isFavorited = currentEntry.header.isFavorited;
+
+            currentEntry.header.isFavorited = !isFavorited;
+            ReplayArchive.WriteManifest(currentEntry.FullPath, currentEntry.header);
+
+            ReplaySettings.favoritedIcon.SetActive(!isFavorited);
+
+            ReplayFiles.explorer.Refresh();
+            ReplayFiles.RefreshUI();
+        }));
+
         ReplaySettings.replaySettingsGO = replaySettingsGO;
         ReplaySettings.deleteButton = deleteButtonComp;
         ReplaySettings.replayName = replayNameComp;
@@ -1443,6 +1488,7 @@ public class Main : MelonMod
         ReplaySettings.povButton = povCameraButton;
         ReplaySettings.hideLocalPlayerToggle = hideLocalPlayerButton;
         ReplaySettings.openControlsButton = openControlsButton;
+        ReplaySettings.favoritedIcon = replayFavIcon;
         
         // Replay Explorer
 
@@ -1512,14 +1558,14 @@ public class Main : MelonMod
             collider.center = replayButton.transform.GetChild(0).transform.InverseTransformPoint(renderer.bounds.center);
             collider.size = renderer.bounds.size;
 
-            var trackedIcon = GameObject.Instantiate(
+            var favoriteIcon = GameObject.Instantiate(
                 GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.TrackedIcon.GetGameObject(),
                 TextandIcons
             );
 
-            trackedIcon.transform.localPosition = new Vector3(0.2455f, 0.0626f, -0.0338f);
-            trackedIcon.transform.localScale = Vector3.one * 0.002f;
-            trackedIcon.SetActive(false);
+            favoriteIcon.transform.localPosition = new Vector3(0.2455f, 0.0626f, -0.0338f);
+            favoriteIcon.transform.localScale = Vector3.one * 0.002f;
+            favoriteIcon.SetActive(false);
         }
 
         var PathGO = new GameObject("Path");
