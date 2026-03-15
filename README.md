@@ -94,6 +94,24 @@ Once a replay is selected, a second panel appears with tools for managing the fi
 - Rename button (with keyboard input)
 - Copy path button
 - Delete button
+- Favorite button
+
+And while a replay is playing:
+- POV Button (see above)
+- Hide Local Player
+- Open Playback Controls
+
+---
+
+### Replay Explorer
+
+When no replay is selected, a File Explorer is shown, allowing you to view multiple replays at once.  
+The top of the panel displays the current path, and below it is a list of replays and folders inside your  
+Replays Directory.
+
+Opening a folder will add a `..` entry at the top of the list, which allows you to move up a folder.  
+
+At the bottom of the panel, two buttons let you switch between pages of entries.
 
 ---
 
