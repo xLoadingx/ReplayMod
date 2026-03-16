@@ -22,9 +22,20 @@ public static class ReplayAPI
     private static readonly List<ModSettingFolder> _extensionFolders = new(); 
     
     /// <summary>
-    /// Invoked when a replay is selected from the UI. If header / path is null, then there is no replay selected.
+    /// Invoked when a replay is selected from the UI.
+    /// If entry or path is null, then no replay is selected.
     /// </summary>
-    public static event Action<ReplaySerializer.ReplayHeader, string> onReplaySelected;
+    public static event Action<ReplayExplorer.Entry, string> onReplaySelected;
+
+    /// <summary>
+    /// Invoked when a directory change happens in the explorer.
+    /// </summary>
+    public static event Action<string> onExplorerFolderChanged;
+
+    /// <summary>
+    /// Invoked when the explorer page refreshes.
+    /// </summary>
+    public static event Action onExplorerRefreshed;
     
     /// <summary>
     /// Invoked when playback begins for a replay.
@@ -74,7 +85,9 @@ public static class ReplayAPI
     /// </summary>
     public static event Action<ReplaySerializer.ReplayHeader, string> onReplayRenamed;
 
-    internal static void ReplaySelectedInternal(ReplaySerializer.ReplayHeader info, string path) => onReplaySelected?.Invoke(info, path);
+    internal static void ReplaySelectedInternal(ReplayExplorer.Entry entry, string path) => onReplaySelected?.Invoke(entry, path);
+    internal static void ExplorerFolderChangedInternal(string path) => onExplorerFolderChanged?.Invoke(path);
+    internal static void ExplorerRefreshedInternal() => onExplorerRefreshed?.Invoke();
     internal static void ReplayStartedInternal(ReplayInfo info) => onReplayStarted?.Invoke(info);
     internal static void ReplayEndedInternal(ReplayInfo info) => onReplayEnded?.Invoke(info);
     internal static void ReplayTimeChangedInternal(float time) => onReplayTimeChanged?.Invoke(time);
@@ -124,6 +137,77 @@ public static class ReplayAPI
     /// </summary>
     public static Version FormatVersion => new (BuildInfo.FormatVersion);
 
+    /// <summary>
+    /// The root directory of the replay explorer.
+    /// Navigation cannot go above this path.
+    /// </summary>
+    public static string RootFolder => ReplayFiles.explorer.RootPath;
+    
+    /// <summary>
+    /// The currently opened folder in the replay explorer.
+    /// </summary>
+    public static string CurrentFolder => ReplayFiles.explorer.CurrentFolderPath;
+
+    /// <summary>
+    /// All entries in the currently opened folder.
+    /// Includes folders and replay files.
+    /// </summary>
+    public static IReadOnlyList<ReplayExplorer.Entry> Entries => ReplayFiles.explorer.currentReplayEntries;
+
+    /// <summary>
+    /// The currently selected entry in the replay explorer.
+    /// Returns null if nothing is selected.
+    /// </summary>
+    public static ReplayExplorer.Entry SelectedEntry => ReplayFiles.explorer.currentlySelectedEntry;
+
+    /// <summary>
+    /// Selects an entry by index.
+    /// This does not update the UI (see <see cref="ReplayFiles.RefreshUI"/>)
+    /// If the entry is a folder, the explorer will enter its directory.
+    /// </summary>
+    /// <returns>true if a replay file was selected at the specified index.</returns>
+    public static bool SelectEntry(int index) => ReplayFiles.explorer.Select(index);
+
+    /// <summary>
+    /// Opens a folder in the replay explorer.
+    /// The path must be inside the replay root directory.
+    /// </summary>
+    public static void Enter(string path) => ReplayFiles.explorer.Enter(path);
+
+    /// <summary>
+    /// Navigates to the parent folder of the current explorer directory.
+    /// </summary>
+    public static void GoUp() => ReplayFiles.explorer.GoUp();
+
+    /// <summary>
+    /// Reloads the contents of the current explorer folder.
+    /// This is automatically called when the folder is changed.
+    /// </summary>
+    public static void Refresh()
+    {
+        ReplayFiles.explorer.Refresh();
+        ReplayFiles.RefreshUI();
+    }
+
+    /// <summary>
+    /// The currently visible page index in the replay explorer.
+    /// </summary>
+    public static int ExplorerCurrentPage
+    {
+        get => ReplayFiles.explorer.currentPage;
+        set => ReplayFiles.explorer.currentPage = value;
+    }
+
+    /// <summary>
+    /// Total number of pages in the current directory.
+    /// </summary>
+    public static int PageCount => ReplayFiles.explorer.pageCount;
+    
+    /// <summary>
+    /// Returns the entries on the current page of the explorer.
+    /// </summary>
+    public static IReadOnlyList<ReplayExplorer.Entry> GetPage() => ReplayFiles.explorer.GetPage();
+    
     /// <summary>
     /// Returns the ModUI reference of the mod.
     /// </summary>

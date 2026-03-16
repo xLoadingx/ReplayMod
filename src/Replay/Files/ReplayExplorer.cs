@@ -29,6 +29,7 @@ public class ReplayExplorer
         Map,
         PlayerCount,
         OpponentBP,
+        MarkerDensity
     }
 
     public string CurrentReplayPath =>
@@ -54,6 +55,8 @@ public class ReplayExplorer
         currentReplayEntries = GetEntries(sortingType);
         
         currentIndex = Clamp(currentIndex, -1, currentReplayEntries.Count - 1);
+        
+        ReplayAPI.ExplorerRefreshedInternal();
     }
 
     public List<Entry> GetEntries(SortingType sorting = SortingType.Date)
@@ -133,6 +136,13 @@ public class ReplayExplorer
                 .Select(p => p.BattlePoints)
                 .DefaultIfEmpty(0)
                 .Max()),
+            SortingType.MarkerDensity => query.OrderByDescending(f =>
+            {
+                int markerCount = f.header?.Markers?.Length ?? 0;
+                float duration = f.header?.Duration ?? 0;
+
+                return markerCount / duration * Log(markerCount + 1);
+            }),
             _ => query
         };
 
@@ -163,6 +173,9 @@ public class ReplayExplorer
         CurrentFolderPath = path;
         currentIndex = -1;
         Refresh();
+
+        ReplayAPI.ExplorerFolderChangedInternal(CurrentFolderPath);
+        ReplayAPI.ReplaySelectedInternal(null, CurrentFolderPath);
     }
 
     public void GoUp()
@@ -177,6 +190,9 @@ public class ReplayExplorer
         CurrentFolderPath = parent.FullName;
         currentIndex = -1;
         Refresh();
+
+        ReplayAPI.ExplorerFolderChangedInternal(CurrentFolderPath);
+        ReplayAPI.ReplaySelectedInternal(null, CurrentFolderPath);
     }
 
     public void Next()

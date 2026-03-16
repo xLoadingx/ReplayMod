@@ -286,8 +286,6 @@ public static class ReplayFiles
             ? 0 
             : explorer.currentReplayEntries.Take(index + 1).Count(e => !e.IsFolder);
 
-        ReplaySerializer.ReplayHeader header = null;
-
         if (string.IsNullOrEmpty(path))
         {
             currentHeader = null;
@@ -304,7 +302,7 @@ public static class ReplayFiles
         {
             try
             {
-                header = explorer.currentlySelectedEntry.header;
+                var header = explorer.currentlySelectedEntry.header;
                 currentHeader = header;
 
                 table.replayNameText.text = ReplayFormatting.GetReplayDisplayName(path, header);
@@ -315,6 +313,8 @@ public static class ReplayFiles
                 table.metadataText.text = ReplayFormatting.FormatReplayString(format, header);
 
                 ShowMetadata();
+                
+                ReplayAPI.ReplaySelectedInternal(explorer.currentlySelectedEntry, path);
             }
             catch (Exception e)
             {
@@ -334,8 +334,6 @@ public static class ReplayFiles
         }
 
         table.indexText.text = $"{shownIndex} / {count}";
-        
-        ReplayAPI.ReplaySelectedInternal(header, path);
         
         table.replayNameText.ForceMeshUpdate();
         table.indexText.ForceMeshUpdate();
