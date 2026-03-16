@@ -50,11 +50,9 @@ public class Validation : ValidationParameters
     public override bool DoValidation(string Input)
     {
         if (Enum.TryParse(typeof(ReplayExplorer.SortingType), Input, true, out _))
-        {
-            Main.ReplayError();
             return true;
-        }
         
+        Main.ReplayError();
         return false;
     }
 }
@@ -1537,7 +1535,7 @@ public class Main : MelonMod
         ReplaySettings.replayExplorerGO = replayExplorerGO;
 
         ReplayFiles.folderIcon = bundle.LoadAsset<Texture2D>("FolderIcon");
-        ReplayFiles.replayIcon = bundle.LoadAsset<Texture2D>("RenameIcon");
+        ReplayFiles.replayIcon = bundle.LoadAsset<Texture2D>("ReplayIcon");
         
         for (int i = 0; i <= 5; i++)
         {

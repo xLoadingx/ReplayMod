@@ -350,6 +350,9 @@ public static class ReplayFiles
 
     public static void ReloadReplays()
     {
+        if (ReplaySettings.replayExplorerGO == null)
+            return;
+        
         var previousGuid = currentHeader?.Guid;
 
         explorer.currentPage = 0;
@@ -438,7 +441,7 @@ public static class ReplayFiles
 
             var icon = button.transform.GetChild(1).GetChild(3).GetComponent<MeshRenderer>();
             icon.material.SetTexture("_Texture", entry.IsFolder ? folderIcon : replayIcon);
-            icon.transform.localScale = Vector3.one * (entry.IsFolder ? 0.0522f : 0.0522f);
+            icon.transform.localScale = (entry.IsFolder ? Vector3.one * 0.0522f : new Vector3(0.0422f, 0.0402f, 0.0422f));
             
             if (!entry.IsFolder)
                 button.transform.GetChild(1).GetChild(7).gameObject.SetActive(entry.header.isFavorited);

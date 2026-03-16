@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ReplayMod.Core;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using static UnityEngine.Mathf;
+using Main = ReplayMod.Core.Main;
 
 namespace ReplayMod.Replay.Files;
 
@@ -50,7 +50,7 @@ public class ReplayExplorer
 
     public void Refresh()
     {
-        Enum.TryParse((string)Main.instance.ExplorerSorting.SavedValue, true, out SortingType sortingType);
+        Enum.TryParse((string)Main.instance.ExplorerSorting.Value, true, out SortingType sortingType);
         currentReplayEntries = GetEntries(sortingType);
         
         currentIndex = Clamp(currentIndex, -1, currentReplayEntries.Count - 1);
@@ -71,12 +71,26 @@ public class ReplayExplorer
         
         var files = Directory
             .GetFiles(CurrentFolderPath, "*.replay")
-            .Select(file => new Entry
+            .Select(file =>
             {
-                Name = Path.GetFileNameWithoutExtension(file),
-                FullPath = file,
-                header = ReplayArchive.GetManifest(file),
-                IsFolder = false,
+                ReplaySerializer.ReplayHeader header;
+
+                try
+                {
+                    header = ReplayArchive.GetManifest(file);
+                }
+                catch
+                {
+                    return null;
+                }
+                
+                return new Entry
+                {
+                    Name = Path.GetFileNameWithoutExtension(file),
+                    FullPath = file,
+                    header = header,
+                    IsFolder = false
+                };
             })
             .ToList();
 
@@ -102,26 +116,29 @@ public class ReplayExplorer
 
     private List<Entry> SortFiles(List<Entry> files, SortingType sorting)
     {
-        if ((bool)Main.instance.FavoritesFirst.SavedValue)
-            files = files.OrderByDescending(f => f.header.isFavorited).ToList();
+        IOrderedEnumerable<Entry> query =
+            (bool)Main.instance.FavoritesFirst.SavedValue
+                ? files.OrderByDescending(f => f.header?.isFavorited ?? false)
+                : files.OrderBy(f => 0);
         
-        var newFiles = sorting switch
+        query = sorting switch
         {
-            SortingType.Name => files.OrderBy(f => f.Name).ToList(),
-            SortingType.Date => files.OrderByDescending(f => File.GetLastWriteTimeUtc(f.FullPath)).ToList(),
-            SortingType.Duration => files.OrderByDescending(f => f.header.Duration).ToList(),
-            SortingType.Map => files.OrderBy(f => ReplayFormatting.GetMapName(header: f.header), StringComparer.OrdinalIgnoreCase).ToList(),
-            SortingType.PlayerCount => files.OrderByDescending(f => f.header.Players?.Length).ToList(),
-            SortingType.OpponentBP => files.OrderByDescending(f => f.header.Players
+            SortingType.Name => query.ThenBy(f => f.Name),
+            SortingType.Date => query.ThenByDescending(f => File.GetLastWriteTimeUtc(f.FullPath)),
+            SortingType.Duration => query.ThenByDescending(f => f.header?.Duration ?? 0),
+            SortingType.Map => query.ThenBy(f => ReplayFormatting.GetMapName(header: f.header), StringComparer.OrdinalIgnoreCase),
+            SortingType.PlayerCount => query.ThenByDescending(f => f.header?.Players?.Length ?? 0),
+            SortingType.OpponentBP => query.ThenByDescending(f => f.header?.Players
                 .Where(p => !p.IsLocal)
                 .Select(p => p.BattlePoints)
-                .DefaultIfEmpty(0).Max()
-            ).ToList(),
-
-            _ => files
+                .DefaultIfEmpty(0)
+                .Max()),
+            _ => query
         };
 
-        if ((bool)Main.instance.SortingDirection.SavedValue)
+        var newFiles = query.ToList();
+        
+        if ((bool)Main.instance.SortingDirection.Value)
             newFiles.Reverse();
         
         return newFiles;
