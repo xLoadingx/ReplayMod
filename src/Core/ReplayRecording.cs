@@ -651,6 +651,8 @@ public class ReplayRecording
         SaveReplay(Frames.ToArray(), recordingMarkers, "Recording", onSave: (info, path) => ReplayAPI.ReplaySavedInternal(info, false, path));
 
         Reset();
+
+        ReplayAPI.RecordingStoppedInternal();
     }
     
     public void StartRecording()
@@ -669,6 +671,8 @@ public class ReplayRecording
             Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
 
         Main.DebugLog($"[Recording] Started | Scene: {recordingSceneName} | Players: {RecordedPlayers.Count} | Structures: {Structures.Count}");
+
+        ReplayAPI.RecordingStartedInternal();
     }
 
     public void Reset()

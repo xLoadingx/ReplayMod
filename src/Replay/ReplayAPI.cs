@@ -47,6 +47,16 @@ public static class ReplayAPI
     /// Invoked when playback is stopped and all replay objects are destroyed.
     /// </summary>
     public static event Action<ReplayInfo> onReplayEnded;
+
+    /// <summary>
+    /// Invoked when a recording is started. This does not include the buffer.
+    /// </summary>
+    public static event Action onRecordingStarted;
+
+    /// <summary>
+    /// Invoked when a recording is stopped. This does not include the buffer.
+    /// </summary>
+    public static event Action onRecordingStopped;
     
     /// <summary>
     /// Invoked when the playback time changes (seek or progression).
@@ -90,6 +100,8 @@ public static class ReplayAPI
     internal static void ExplorerRefreshedInternal() => onExplorerRefreshed?.Invoke();
     internal static void ReplayStartedInternal(ReplayInfo info) => onReplayStarted?.Invoke(info);
     internal static void ReplayEndedInternal(ReplayInfo info) => onReplayEnded?.Invoke(info);
+    internal static void RecordingStartedInternal() => onRecordingStarted?.Invoke();
+    internal static void RecordingStoppedInternal() => onRecordingStopped?.Invoke();
     internal static void ReplayTimeChangedInternal(float time) => onReplayTimeChanged?.Invoke(time);
     internal static void ReplayPauseChangedInternal(bool paused) => onReplayPauseChanged?.Invoke(paused);
 
