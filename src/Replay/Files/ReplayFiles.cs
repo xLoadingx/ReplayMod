@@ -274,7 +274,7 @@ public static class ReplayFiles
     
     // ----- Replay Selection -----
     
-    private static void SelectReplayFromExplorer()
+    public static void SelectReplayFromExplorer()
     {
         if (table.replayNameText == null)
             return;
@@ -383,6 +383,7 @@ public static class ReplayFiles
         }
         
         RefreshUI();
+        SelectReplayFromExplorer();
     }
     
     public static void RefreshUI()

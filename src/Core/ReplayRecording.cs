@@ -582,6 +582,16 @@ public class ReplayRecording
         int index;
         if (PlayerSlots.TryGetValue(id, out var slot))
         {
+            if (Utilities.IsReplayClone(player.Controller))
+            {
+                int newSlot = RecordedPlayers.Count;
+                RecordedPlayers.Add(player);
+                
+                Main.DebugLog($"[Recording] Replay clone detected | Id: {id} | Slot: {newSlot}");
+
+                return newSlot;
+            }
+            
             RecordedPlayers[slot] = player;
             index = slot;
         }

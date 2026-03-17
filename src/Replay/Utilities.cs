@@ -151,12 +151,8 @@ public static class Utilities
     {
         if (controller == null || Main.Playback.PlaybackPlayers == null)
             return false;
-        
-        foreach (var clone in Main.Playback.PlaybackPlayers)
-            if (clone.Controller == controller)
-                return true;
 
-        return false;
+        return controller.GetComponent<ReplayPlayback.Clone>();
     }
     
     public static IEnumerable<GameObject> EnumerateMatchPedestals()
