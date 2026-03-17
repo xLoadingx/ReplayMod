@@ -383,7 +383,6 @@ public static class ReplayFiles
         }
         
         RefreshUI();
-        SelectReplayFromExplorer();
     }
     
     public static void RefreshUI()

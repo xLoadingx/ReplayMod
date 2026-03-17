@@ -942,7 +942,7 @@ public class ReplaySerializer
                     case EventField.rotation: e.rotation = r.ReadQuaternion(); break;
                     case EventField.masterId: e.masterId = r.ReadString(); break;
                     case EventField.playerIndex: e.playerIndex = r.ReadInt32(); break;
-                    case EventField.damage: e.damage = r.ReadInt32(); break;
+                    case EventField.damage: e.damage = r.ReadByte(); break;
                     case EventField.fxType: e.fxType = (FXOneShotType)r.ReadByte(); break;
                     case EventField.structureId: e.structureId = r.ReadInt32(); break;
                 }
@@ -1249,6 +1249,17 @@ public enum PlayerShiftstoneVFX : byte
 [Serializable]
 public class VoiceTrackInfo
 {
+    public VoiceTrackInfo(
+        int ActorId,
+        string FileName,
+        float StartTime
+    )
+    {
+        this.ActorId = ActorId;
+        this.FileName = FileName;
+        this.StartTime = StartTime;
+    }
+    
     public int ActorId;
     public string FileName;
     public float StartTime;
@@ -1309,7 +1320,7 @@ public class EventChunk
     public int structureId = -1;
     
     // Damage HitMarker
-    public int damage;
+    public byte damage;
     
     // FX
     public FXOneShotType fxType;

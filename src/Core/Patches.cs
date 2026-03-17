@@ -121,7 +121,7 @@ public class Patches
                     type = EventType.OneShotFX,
                     fxType = FXOneShotType.Hitmarker,
                     position = vfx.transform.position,
-                    damage = (int)vfx.GetFloat("Damage")
+                    damage = (byte)vfx.GetFloat("Damage")
                 };
 
                 Main.Recording.Events.Add(evt);

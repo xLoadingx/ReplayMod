@@ -14,6 +14,18 @@
 
     <ItemGroup>
       <Reference Include=".ref/*.dll" Private="false" />
+      <Reference Include="NAudio">
+        <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\UserLibs\NAudio.dll</HintPath>
+      </Reference>
+      <Reference Include="NAudio.Core">
+        <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\UserLibs\NAudio.Core.dll</HintPath>
+      </Reference>
+      <Reference Include="NAudio.Wasapi">
+        <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\UserLibs\NAudio.Wasapi.dll</HintPath>
+      </Reference>
+      <Reference Include="NAudio.WinMM">
+        <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\UserLibs\NAudio.WinMM.dll</HintPath>
+      </Reference>
       <Reference Include="RumbleModdingAPI">
         <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\Mods\RumbleModdingAPI.dll</HintPath>
       </Reference>
