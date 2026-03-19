@@ -1535,7 +1535,9 @@ public class Main : MelonMod
         ReplaySettings.replayExplorerGO = replayExplorerGO;
 
         ReplayFiles.folderIcon = bundle.LoadAsset<Texture2D>("FolderIcon");
+        ReplayFiles.folderIcon.hideFlags = HideFlags.DontUnloadUnusedAsset;
         ReplayFiles.replayIcon = bundle.LoadAsset<Texture2D>("ReplayIcon");
+        ReplayFiles.replayIcon.hideFlags = HideFlags.DontUnloadUnusedAsset;
         
         for (int i = 0; i <= 5; i++)
         {
