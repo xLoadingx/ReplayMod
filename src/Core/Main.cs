@@ -106,33 +106,41 @@ public class Main : MelonMod
     public ModSetting<bool> EnableRoundEndMarker = new();
     
     // Automatic Markers - Large Damage
-    public ModSetting<bool> EnableLargeDamageMarker = new();
-    public ModSetting<int> DamageThreshold = new();
-    public ModSetting<float> DamageWindow = new();
+    public ModSetting<bool> EnableLargeDamageMarker;
+    public ModSetting<int> DamageThreshold;
+    public ModSetting<float> DamageWindow;
     
     // Playback
-    public ModSetting<bool> StopReplayWhenDone = new();
-    public ModSetting<bool> PlaybackControlsFollow = new();
-    public ModSetting<bool> DestroyControlsOnPunch = new();
+    public ModSetting<bool> StopReplayWhenDone;
+    public ModSetting<bool> PlaybackControlsFollow;
+    public ModSetting<bool> DestroyControlsOnPunch;
+    public ModSetting<bool> ToggleUI;
+    
+    // Playback Toggles
+    public ModSetting<bool> ToggleNameplate;
+    public ModSetting<bool> ToggleHealthBar;
+    public ModSetting<bool> ToggleDust;
+    public ModSetting<bool> ToggleHitmarkers;
+    public ModSetting<bool> ToggleRockCam;
     
     // Replay Explorer
-    public ModSetting<string> ExplorerSorting = new();
-    public ModSetting<bool> SortingDirection = new();
-    public ModSetting<bool> FavoritesFirst = new();
+    public ModSetting<string> ExplorerSorting;
+    public ModSetting<bool> SortingDirection;
+    public ModSetting<bool> FavoritesFirst;
     
     // Replay Buffer
-    public ModSetting<bool> ReplayBufferEnabled = new();
-    public ModSetting<int> ReplayBufferDuration = new();
+    public ModSetting<bool> ReplayBufferEnabled;
+    public ModSetting<int> ReplayBufferDuration;
 
     // Controls
-    public ModSetting<string> LeftHandControls = new();
-    public ModSetting<string> RightHandControls = new();
+    public ModSetting<string> LeftHandControls;
+    public ModSetting<string> RightHandControls;
 
-    public ModSetting<bool> EnableHaptics = new();
+    public ModSetting<bool> EnableHaptics;
     
     // Other
-    public ModSetting<float> tableOffset = new();
-    public ModSetting<bool> enableDebug = new();
+    public ModSetting<float> tableOffset;
+    public ModSetting<bool> enableDebug;
     public ModSettingFolder extensionsFolder;
     
     // ------------
@@ -188,8 +196,6 @@ public class Main : MelonMod
 
         Recording = new();
         Playback = new(Recording);
-
-        DebugLog("ReplayMod initialized");
     }
     
     private IEnumerator ListenForFlatLand()
@@ -443,10 +449,28 @@ public class Main : MelonMod
         StopReplayWhenDone = replayMod.AddToList("Stop Replay On Finished", false, 0, "Stops a replay when it reaches the end or beginning of its duration.", new Tags());
         PlaybackControlsFollow = replayMod.AddToList("Playback Controls Follow Player", false, 0, "Makes the playback controls menu follow you when opened.", new Tags());
         DestroyControlsOnPunch = replayMod.AddToList("Destroy Controls On Punch", true, 0, "Destroys the playback controls when you punch the slab hard enough.", new Tags());
+
+        ToggleUI = replayMod.AddToList("Toggle UI", true, 0, "Toggles whether the UI for selecting replays is visible.", new Tags());
+        
+        var playbackTogglesFolder = replayMod.AddFolder("Toggles", "Toggles for playback visuals.");
+
+        ToggleNameplate = replayMod.AddToList("Toggle Player Nameplayes", false, 0, "Toggles whether the nameplate on replay clones are visible", new Tags());
+        ToggleHealthBar = replayMod.AddToList("Toggle Player Healthbars", true, 0, "Toggles whether the healthbar on replay clones are visible.", new Tags());
+        ToggleDust = replayMod.AddToList("Toggle Dust", true, 0, "Toggles whether dust from replay structures are visible.", new Tags());
+        ToggleHitmarkers = replayMod.AddToList("Toggle Hitmarkers", true, 0, "Toggles whether hitmarkers (on remote player damage) are visible.", new Tags());
+        ToggleRockCam = replayMod.AddToList("Toggle Rock Cam", true, 0, "Toggles whether replay clones Rock Cams are visible.", new Tags());
+
+        playbackTogglesFolder.AddSetting(ToggleNameplate);
+        playbackTogglesFolder.AddSetting(ToggleHealthBar);
+        playbackTogglesFolder.AddSetting(ToggleDust);
+        playbackTogglesFolder.AddSetting(ToggleHitmarkers);
+        playbackTogglesFolder.AddSetting(ToggleRockCam);
         
         playbackFolder.AddSetting(StopReplayWhenDone);
         playbackFolder.AddSetting(PlaybackControlsFollow);
         playbackFolder.AddSetting(DestroyControlsOnPunch);
+        playbackFolder.AddSetting(ToggleUI);
+        playbackFolder.AddSetting(playbackTogglesFolder);
 
         var replayExplorerFolder = replayMod.AddFolder("Replay Explorer", "Settings for the replay explorer.");
 
@@ -561,6 +585,39 @@ public class Main : MelonMod
         ExplorerSorting.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
         SortingDirection.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
         FavoritesFirst.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
+
+        ToggleNameplate.SavedValueChanged += (obj, sender) =>
+        {
+            if (!Playback?.isPlaying ?? true)
+                return;
+
+            foreach (var player in Playback.PlaybackPlayers)
+                player.Controller.PlayerNameTag.gameObject.SetActive((bool)ToggleNameplate.Value);
+        };
+
+        ToggleHealthBar.SavedValueChanged += (obj, sender) =>
+        {
+            if (!Playback?.isPlaying ?? true)
+                return;
+
+            foreach (var player in Playback.PlaybackPlayers)
+                player.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive((bool)ToggleHealthBar.Value);
+        };
+
+        ToggleRockCam.SavedValueChanged += (obj, sender) =>
+        {
+            if (!Playback?.isPlaying ?? true)
+                return;
+
+            foreach (var player in Playback.PlaybackPlayers)
+                player.Controller.PlayerLIV.LckTablet.gameObject.SetActive((bool)ToggleRockCam.Value);
+        };
+        
+        ToggleUI.SavedValueChanged += (obj, sender) =>
+        {
+            replayTable?.gameObject.SetActive((bool)ToggleUI.Value);
+            replayTable?.metadataText?.gameObject.SetActive((bool)ToggleUI.Value);
+        };
         
         replayMod.GetFromFile();
         
@@ -1919,6 +1976,11 @@ public class Main : MelonMod
         if (currentScene != "Loader")
             ReplayCrystals.HandleCrystals();
 
+        // Why does the nameplate appear when a replay loads?
+        // Who knows! I doubt this will conflict with other mods
+        if (LocalPlayer?.Controller != null)
+            LocalPlayer.Controller.PlayerNameTag.gameObject.SetActive(false);
+        
         if (currentScene != "Gym" || replayTable == null || replayTable.gameObject || replayTable.metadataText == null)
             return;
 
@@ -1952,8 +2014,8 @@ public class Main : MelonMod
 
     public override void OnLateUpdate()
     {
-        Recording.HandleRecording();
-        Playback.HandlePlayback();
+        Recording?.HandleRecording();
+        Playback?.HandlePlayback();
     }
 
     public override void OnFixedUpdate()

@@ -131,8 +131,14 @@ public class ReplayPlayback
         }
     }
     
-    public void LoadReplay(string path)
+    public void LoadReplay(string path, bool allowDifferentSceneLoad = false)
     {
+        if (ReplayArchive.GetManifest(path).Scene != Main.currentScene && !allowDifferentSceneLoad)
+        {
+            Main.ReplayError("Replay attempted to load in wrong scene. Aborting.");
+            return;
+        }
+        
         currentReplay = ReplaySerializer.LoadReplay(path);
 
         SetPlaybackSpeed(1f);
@@ -183,9 +189,10 @@ public class ReplayPlayback
             
             PlaybackStructures[i] = ReplayCache.structurePools.GetValueOrDefault(headerStructure.Type).FetchFromPool().gameObject;
 
+            Structure structure = PlaybackStructures[i].GetComponent<Structure>();
+            
             if (disableBaseStructureSystems)
             {
-                Structure structure = PlaybackStructures[i].GetComponent<Structure>();
                 structure.indistructable = true;
                 structure.onBecameFreeAudio = null;
                 structure.onBecameGroundedAudio = null;
@@ -194,17 +201,18 @@ public class ReplayPlayback
                 foreach (var col in structure.GetComponentsInChildren<Collider>())
                     col.enabled = false;
             
-                GameObject.Destroy(PlaybackStructures[i].GetComponent<Rigidbody>());
-            
+                // GameObject.Destroy(PlaybackStructures[i].GetComponent<Rigidbody>());
+                PlaybackStructures[i].GetComponent<Rigidbody>().isKinematic = true;
+                
                 if (PlaybackStructures[i].TryGetComponent<NetworkGameObject>(out var networkGameObject))
                     GameObject.Destroy(networkGameObject);
-
-                if (currentReplay.Header.Structures[i].Type == StructureType.Target)
-                    structure.GetComponent<StructureTarget>().SetTargetBaseTierPointsAndUpdateVisuals(headerStructure.targetDamage ?? 1);
-                
-                if (Recording.isRecording || Recording.isBuffering)
-                    Recording.TryRegisterStructure(structure);
             }
+            
+            if (currentReplay.Header.Structures[i].Type == StructureType.Target)
+                structure.GetComponent<StructureTarget>().SetTargetBaseTierPointsAndUpdateVisuals(headerStructure.targetDamage ?? 1);
+                
+            if (Recording.isRecording || Recording.isBuffering)
+                Recording.TryRegisterStructure(structure);
             
             PlaybackStructures[i].SetActive(false);
             PlaybackStructures[i].transform.SetParent(replayStructures.transform);
@@ -577,6 +585,9 @@ public class ReplayPlayback
 
         var clone = newPlayer.Controller.gameObject.AddComponent<Clone>();
 
+        newPlayer.Controller.PlayerNameTag.gameObject.SetActive((bool)Main.instance.ToggleNameplate.SavedValue);
+        newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive((bool)Main.instance.ToggleHealthBar.SavedValue);
+
         clone.VRRig = Overall;
         clone.LeftHand = LHand;
         clone.RightHand = RHand;
@@ -665,7 +676,7 @@ public class ReplayPlayback
             playbackStructure.SetActive(state.active);
 
             // States
-            if (state.currentState != sb.currentState)
+            if (structureComp.currentPhysicsState != sb.currentState)
             {
                 state.currentState = sb.currentState;
                 structureComp.currentPhysicsState = sb.currentState;
@@ -796,8 +807,6 @@ public class ReplayPlayback
             state.isFlicked = Utilities.HasVFXType("StructureFlick", playbackStructure.transform);
 
             // ------------
-            
-            structureComp.currentVelocity = velocity * playbackSpeed;
 
             if (sa.active && sb.active)
             {
@@ -817,6 +826,12 @@ public class ReplayPlayback
 
                 if (vfx.name.Contains("ExplodeStatus_VFX"))
                     vfx.transform.localScale = Vector3.one;
+            }
+
+            if ((bool)Main.instance.ToggleDust.SavedValue)
+            {
+                structureComp.GetComponent<Rigidbody>().velocity = velocity;
+                structureComp.currentVelocity = velocity;
             }
             
             if (structureComp.currentFrictionVFX != null)
@@ -962,7 +977,7 @@ public class ReplayPlayback
             }
 
             var rockCam = playbackPlayer.Controller.PlayerLIV?.LckTablet;
-            if (rockCam != null)
+            if (rockCam != null && (bool)Main.instance.ToggleRockCam.SavedValue)
             {
                 if (state.rockCamActive != pb.rockCamActive)
                 {
@@ -1006,6 +1021,14 @@ public class ReplayPlayback
 
                 state.visualData = pb.visualData;
             }
+            
+            playbackPlayer.Controller.PlayerNameTag.gameObject.SetActive(
+                (bool)Main.instance.ToggleNameplate.SavedValue
+            );
+            
+            playbackPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(
+                (bool)Main.instance.ToggleHealthBar.SavedValue
+            );
             
             if (state.active != pb.active)
                 playbackPlayer.Controller.gameObject.SetActive(pb.active);
@@ -1149,6 +1172,9 @@ public class ReplayPlayback
 
         if (ReplayCache.FXToVFXName.TryGetValue(fx.fxType, out var poolName))
         {
+            if (fx.fxType is FXOneShotType.Break or FXOneShotType.DustImpact or FXOneShotType.Grounded or FXOneShotType.Spawn or FXOneShotType.Ungrounded && !(bool)Main.instance.ToggleDust.SavedValue)
+                return null;
+            
             var effect = GameObject.Instantiate(PoolManager.instance.GetPool(poolName).poolItem);
             if (effect != null)
             {
@@ -1170,7 +1196,7 @@ public class ReplayPlayback
             }
         }
 
-        if (fx.fxType == FXOneShotType.Hitmarker)
+        if (fx.fxType == FXOneShotType.Hitmarker && (bool)Main.instance.ToggleHitmarkers.SavedValue)
         {
             var pool = PoolManager.instance.GetPool("PlayerHitmarker");
             var effect = GameObject.Instantiate(pool.poolItem.gameObject, VFXParent.transform);

@@ -51,6 +51,9 @@ public class ReplayExplorer
 
     public void Refresh()
     {
+        if (Main.instance.ExplorerSorting == null)
+            return;
+        
         Enum.TryParse((string)Main.instance.ExplorerSorting.Value, true, out SortingType sortingType);
         currentReplayEntries = GetEntries(sortingType);
         
