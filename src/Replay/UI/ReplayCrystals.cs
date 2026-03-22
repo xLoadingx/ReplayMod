@@ -193,8 +193,6 @@ public static class ReplayCrystals
         lookAt.lockZ = true;
                 
         crystal.ReplayPath = ReplayFiles.explorer.CurrentReplayPath;
-        
-        ReplayFiles.explorer.Next();
 
         if (applyRandomColor)
         {

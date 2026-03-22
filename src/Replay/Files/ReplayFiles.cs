@@ -160,9 +160,9 @@ public static class ReplayFiles
 
     static void OnReplayFolderChanged(object sender, FileSystemEventArgs e)
     {
-        IEnumerator ReloadNextFrame()
+        IEnumerator Reload()
         {
-            yield return null;
+            yield return new WaitForSeconds(0.25f);
 
             ReloadReplays();
             reloadQueued = false;
@@ -171,7 +171,7 @@ public static class ReplayFiles
         if (reloadQueued || suppressWatcher) return;
         
         reloadQueued = true;
-        MelonCoroutines.Start(ReloadNextFrame());
+        MelonCoroutines.Start(Reload());
     }
 
     static void OnFormatChanged(object sender, FileSystemEventArgs e)
@@ -286,7 +286,18 @@ public static class ReplayFiles
             ? 0 
             : explorer.currentReplayEntries.Take(index + 1).Count(e => !e.IsFolder);
 
-        if (string.IsNullOrEmpty(path))
+        var entry = explorer.currentlySelectedEntry;
+
+        if (Directory.GetFiles(Path.Combine(replayFolder, "Replays"), "*.replay", SearchOption.AllDirectories).Length == 0)
+        {
+            currentHeader = null;
+
+            table.replayNameText.text = "No Replays Yet\n<size=70%>Play a match to record one!\nOther recording options in ModUI";
+            HideMetadata();
+            ReplaySettings.replayExplorerGO.SetActive(false);
+            ReplaySettings.replaySettingsGO.SetActive(false);
+            ReplaySettings.replayExplorerGO.transform.parent.parent.gameObject.SetActive(false);
+        } else if (string.IsNullOrEmpty(path) || entry == null || entry.IsFolder)
         {
             currentHeader = null;
 
@@ -294,6 +305,7 @@ public static class ReplayFiles
             HideMetadata();
             ReplaySettings.replayExplorerGO.SetActive(true);
             ReplaySettings.replaySettingsGO.SetActive(false);
+            ReplaySettings.replayExplorerGO.transform.parent.parent.gameObject.SetActive(true);
 
             explorer.Refresh();
             RefreshUI();
@@ -327,6 +339,7 @@ public static class ReplayFiles
                 HideMetadata();
                 ReplaySettings.replayExplorerGO.SetActive(true);
                 ReplaySettings.replaySettingsGO.SetActive(false);
+                ReplaySettings.replayExplorerGO.transform.parent.parent.gameObject.SetActive(true);
 
                 explorer.Refresh();
                 RefreshUI();

@@ -1524,7 +1524,19 @@ public class Main : MelonMod
         renameButton.transform.GetChild(2).GetComponent<TextMeshPro>().text = "Rename";
         renameButton.transform.GetChild(2).GetComponent<TextMeshPro>().ForceMeshUpdate();
         renameButton.transform.GetChild(2).localPosition = new Vector3(0.0171f, 0.0713f, 0);
-        GameObject.Destroy(renameButton.transform.GetChild(0).GetChild(3).gameObject);
+        
+        var srRename = renameButton.transform.GetChild(0).GetChild(3).GetComponent<SpriteRenderer>();
+        var textureRename = bundle.LoadAsset<Texture2D>("RenameIcon");
+        srRename.sprite = Sprite.Create(
+            textureRename,
+            new Rect(0, 0, textureRename.width, textureRename.height),
+            new Vector3(0.5f, 0.5f),
+            100f
+        );
+        srRename.color = Color.white;
+        srRename.transform.localRotation = Quaternion.Euler(270, 180, 0);
+        srRename.transform.localScale = Vector3.one * 0.01f;
+        srRename.name = "RenameIcon";
 
         var favoriteButton = GameObject.Instantiate(
             GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.SettingsScreen.PreReportSection.ReportPlayerButton.GetGameObject(),

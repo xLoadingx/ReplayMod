@@ -124,8 +124,8 @@ public class ReplayExplorer
     {
         IOrderedEnumerable<Entry> query =
             (bool)Main.instance.FavoritesFirst.SavedValue
-                ? files.OrderByDescending(f => f.header?.isFavorited ?? false)
-                : files.OrderBy(f => 0);
+                ? files.OrderByDescending(f => f.header is { isFavorited: true })
+                : files.OrderBy(_ => 0);
         
         query = sorting switch
         {

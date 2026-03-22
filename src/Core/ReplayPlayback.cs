@@ -827,12 +827,6 @@ public class ReplayPlayback
                 if (vfx.name.Contains("ExplodeStatus_VFX"))
                     vfx.transform.localScale = Vector3.one;
             }
-
-            if ((bool)Main.instance.ToggleDust.SavedValue)
-            {
-                structureComp.GetComponent<Rigidbody>().velocity = velocity;
-                structureComp.currentVelocity = velocity;
-            }
             
             if (structureComp.currentFrictionVFX != null)
                 structureComp.currentFrictionVFX.visualEffect.playRate = Abs(playbackSpeed);
