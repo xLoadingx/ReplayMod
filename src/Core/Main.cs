@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Linq;
 using Il2CppPhoton.Pun;
+using Il2CppRUMBLE.Combat.ShiftStones;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Managers;
 using Il2CppRUMBLE.Networking.MatchFlow;
@@ -70,6 +71,7 @@ public class Main : MelonMod
     // Local player
     public static Player LocalPlayer => PlayerManager.instance.localPlayer;
     public Transform leftHand, rightHand, head;
+    public string leftShiftstonePool, rightShiftstonePool;
     
     // Recording FX / timers
     public GameObject clapperboardVFX;
@@ -165,7 +167,7 @@ public class Main : MelonMod
 
     public static void DebugLog(string message)
     {
-        if ((bool)instance.enableDebug.SavedValue && !string.IsNullOrEmpty(message))
+        if ((bool)(instance.enableDebug?.SavedValue ?? false) && !string.IsNullOrEmpty(message))
             instance.LoggerInstance.Warning(message);
     }
     
@@ -356,6 +358,25 @@ public class Main : MelonMod
         leftHand = vr.GetChild(1);
         rightHand = vr.GetChild(2);
         head = vr.GetChild(0).GetChild(0);
+
+        IEnumerator ShiftstoneApplyDelay()
+        {
+            yield return new WaitForSeconds(0.5f);
+            
+            if (PlayerManager.instance.AllPlayers.Count == 1)
+            {
+                if (!string.IsNullOrEmpty(leftShiftstonePool))
+                    LocalPlayer.Controller.PlayerShiftstones.AttachShiftStone(PoolManager.instance.GetPool(leftShiftstonePool).FetchFromPool().GetComponent<ShiftStone>(), 0);
+            
+                if (!string.IsNullOrEmpty(rightShiftstonePool))
+                    LocalPlayer.Controller.PlayerShiftstones.AttachShiftStone(PoolManager.instance.GetPool(rightShiftstonePool).FetchFromPool().GetComponent<ShiftStone>(), 1);
+
+                leftShiftstonePool = null;
+                rightShiftstonePool = null;
+            }
+        }
+
+        MelonCoroutines.Start(ShiftstoneApplyDelay());
 
         Playback.SetPlaybackSpeed(1f);
         ReplayPlayback.isReplayScene = false;
@@ -1089,6 +1110,7 @@ public class Main : MelonMod
         stopReplayTMP.text = "Stop Replay";
         stopReplayTMP.color = new Color(0.8f, 0, 0);
         stopReplayTMP.ForceMeshUpdate();
+        stopReplayTMP.gameObject.SetActive(true);
 
         exitSceneButton.name = "Exit Scene";
         exitSceneButton.transform.localPosition = new Vector3(0.1527f, -0.6109f, 0f);
@@ -1104,6 +1126,7 @@ public class Main : MelonMod
         exitSceneTMP.text = "Exit Scene";
         exitSceneTMP.color = new Color(0.8f, 0, 0);
         exitSceneTMP.ForceMeshUpdate();
+        exitSceneTMP.gameObject.SetActive(true);
 
         var markerPrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
         markerPrefab.name = "ReplayMarker";
@@ -1186,6 +1209,7 @@ public class Main : MelonMod
         var hideLocalPlayerTMP =  hideLocalPlayerButton.transform.GetChild(1).GetComponent<TextMeshPro>();
         hideLocalPlayerTMP.text = "Hide Local Player";
         hideLocalPlayerTMP.transform.localScale = Vector3.one * 0.7f;
+        hideLocalPlayerTMP.gameObject.SetActive(true);
         
         var hideLocalPlayerComp = hideLocalPlayerButton.transform.GetChild(0).GetComponent<InteractionButton>();
         hideLocalPlayerComp.enabled = true;
@@ -1726,6 +1750,12 @@ public class Main : MelonMod
             ReplayFiles.explorer.currentPage = Clamp(--ReplayFiles.explorer.currentPage, 0, ReplayFiles.explorer.pageCount - 1);
             ReplayFiles.RefreshUI();
         }));
+
+        foreach (var renderer in ReplayTable.GetComponentsInChildren<Renderer>(true))
+            renderer.enabled = true;
+
+        foreach (var renderer in playbackControls.GetComponentsInChildren<Renderer>(true))
+            renderer.enabled = true;
         
         GameObject.DontDestroyOnLoad(ReplayTable);
         GameObject.DontDestroyOnLoad(crystalPrefab);

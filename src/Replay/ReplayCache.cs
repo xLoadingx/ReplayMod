@@ -67,7 +67,7 @@ public static class ReplayCache
         { FXOneShotType.RockCamSpawn, "RockCamSpawn_VFX" },
         { FXOneShotType.RockCamDespawn, "RockCamDespawn_VFX" },
         { FXOneShotType.Fistbump, "PlayerBoxInteractionVFX" },
-        { FXOneShotType.FistbumpGoin, "FistbumpCoin" },
+        { FXOneShotType.FistbumpGoin, "PlayerFistBumpBonusVFX" },
         { FXOneShotType.Jump, "Jump_VFX" },
         { FXOneShotType.Dash, "Dash_VFX" }
     };

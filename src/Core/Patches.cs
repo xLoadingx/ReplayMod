@@ -294,7 +294,14 @@ public class Patches
     [HarmonyPatch(new[] { typeof(int), typeof(bool), typeof(bool), typeof(float), typeof(LoadSceneMode), typeof(AudioCall) })]
     public class Patch_SceneManager_LoadSceneAsync
     {
-        static void Prefix() => Main.Playback.StopReplay();
+        static void Prefix()
+        {
+            Main.Playback.StopReplay();
+
+            var shiftstones = Main.LocalPlayer.Controller.PlayerShiftstones.GetEquippedShiftstones();
+            Main.instance.leftShiftstonePool = shiftstones[0]?.resourceName;
+            Main.instance.rightShiftstonePool = shiftstones[1]?.resourceName;
+        }
     }
 
     [HarmonyPatch(typeof(ParkBoardTrigger), nameof(ParkBoardTrigger.OnTriggerEnter))]

@@ -578,10 +578,6 @@ public class ReplayPlayback
         foreach (var pose in Main.LocalPlayer.Controller.PlayerPoseSystem.currentInputPoses)
             poseSystem.currentInputPoses.Add(new PoseInputSource(pose.PoseSet));
         poseSystem.enabled = true;
-        
-        newPlayer.Controller.PlayerUI.localUIBar
-            .InitializeMaterials(newPlayer.Controller, PlayerUIBar.UIBarMode.Health);
-        newPlayer.Controller.PlayerUI.localUIBar.healthbarModeMaterial.SetFloat("_IsLocal", 1f);
 
         var clone = newPlayer.Controller.gameObject.AddComponent<Clone>();
 
