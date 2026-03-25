@@ -5,6 +5,7 @@ using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.Combat.ShiftStones;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Managers;
+using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Networking.MatchFlow;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
@@ -273,6 +274,9 @@ public class Main : MelonMod
             if (replayTable.metadataTextFloat != null)
                 replayTable.metadataTextFloat.startPos = new Vector3(5.9575f, 1.8514f, 4.2102f);
             
+            replaySettings.gameObject.transform.localPosition = new Vector3(0.3782f, 0.88f, 0.1564f);
+            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(23.4376f, 90f, 90f);
+            
             replayTable.tableOffset = 0f;
             replayTable.transform.localRotation = Quaternion.Euler(270, 121.5819f, 0);
         }
@@ -283,6 +287,10 @@ public class Main : MelonMod
             
             replayTable.tableFloat.startPos = new Vector3(-28.9436f, -1.5689f, -6.9218f);
             replayTable.metadataTextFloat.startPos = new Vector3(-28.9499f, -2.0639f, -6.9414f);
+            
+            replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
+            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
+            
             replayTable.tableOffset = -3.06f;
             replayTable.transform.localRotation = Quaternion.Euler(270f, 0, 0);
 
@@ -295,20 +303,28 @@ public class Main : MelonMod
             replayTable.TableRoot.SetActive(true);
             replayTable.metadataText.gameObject.SetActive(true);
 
-            replayTable.tableFloat.startPos = new Vector3(0.411f, -4.4577f, 18.012f);
-            replayTable.metadataTextFloat.startPos = new Vector3(0.411f, -4.027f, 18.094f);
+            replayTable.tableFloat.startPos = new Vector3(15.671f, -4.4577f, -8.5671f);
+            replayTable.metadataTextFloat.startPos = new Vector3(15.671f, -4.4577f, -8.5671f);
+            
+            replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
+            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
+            
             replayTable.tableOffset = -5.8f;
-            replayTable.transform.localRotation = Quaternion.Euler(270f, 90f, 0f);
+            replayTable.transform.localRotation = Quaternion.Euler(270f, 215.5305f, 0f);
         } 
         else if (currentScene == "Map1" && PlayerManager.instance.AllPlayers.Count == 1)
         {
             replayTable.TableRoot.SetActive(true);
             replayTable.metadataText.gameObject.SetActive(true);
 
-            replayTable.tableFloat.startPos = new Vector3(0.991f, 1.1872f, 9.5221f);
-            replayTable.metadataTextFloat.startPos = new Vector3(0.991f, 1.1872f, 9.5221f);
+            replayTable.tableFloat.startPos = new Vector3(-13.8339f, 1.1872f, -0.3379f);
+            replayTable.metadataTextFloat.startPos = new Vector3(-13.8339f, 1.1872f, -0.3379f);
+            
+            replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
+            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
+            
             replayTable.tableOffset = -0.35f;
-            replayTable.transform.localRotation = Quaternion.Euler(270f, 90f, 0f);
+            replayTable.transform.localRotation = Quaternion.Euler(270f, 352.1489f, 0f);
         }
         else
         {
@@ -1112,7 +1128,7 @@ public class Main : MelonMod
         stopReplayTMP.ForceMeshUpdate();
         stopReplayTMP.gameObject.SetActive(true);
 
-        exitSceneButton.name = "Exit Scene";
+        exitSceneButton.name = "Exit Map";
         exitSceneButton.transform.localPosition = new Vector3(0.1527f, -0.6109f, 0f);
         exitSceneButton.transform.localScale = Vector3.one * 2f;
         exitSceneButton.transform.localRotation = Quaternion.identity;
@@ -1123,7 +1139,7 @@ public class Main : MelonMod
         exitSceneComp.onPressed.AddListener((UnityAction)(() => { MelonCoroutines.Start(Utilities.LoadMap(1)); }));
 
         var exitSceneTMP = exitSceneButton.transform.GetChild(1).GetComponent<TextMeshPro>();
-        exitSceneTMP.text = "Exit Scene";
+        exitSceneTMP.text = "Exit Map";
         exitSceneTMP.color = new Color(0.8f, 0, 0);
         exitSceneTMP.ForceMeshUpdate();
         exitSceneTMP.gameObject.SetActive(true);
@@ -1262,12 +1278,26 @@ public class Main : MelonMod
             else
             {
                 ReplayPlaybackControls.Open();
-                ReplayPlaybackControls.playbackControls.transform.position = 
-                    replaySettingsPanel.transform.position + new Vector3(-0.5795f, -0.0175f, -0.5384f);
-                
-                Vector3 rot = replaySettingsPanel.transform.eulerAngles;
-                rot.y -= 26.9988f;
-                ReplayPlaybackControls.playbackControls.transform.eulerAngles = rot;
+
+                Vector3 position = currentScene switch
+                {
+                    "Gym" => new Vector3(4.2525f, 1.5936f, 4.2636f),
+                    "Map0" => new Vector3(13.8832f, -4.2314f, -9.1586f),
+                    "Map1" => new Vector3(-12.846f, 1.2404f, 1.294f),
+                    "Park" => new Vector3(-27.7917f, -1.4615f, -5.4588f),
+                    _ => Vector3.zero
+                };
+
+                Quaternion rotation = currentScene switch
+                {
+                    "Gym" => Quaternion.Euler(0, 162.7955f, 0),
+                    "Map0" => Quaternion.Euler(0, 3.7954f, 0),
+                    "Map1" or "Park" => Quaternion.Euler(0, 143.5775f, 0),
+                    _ => Quaternion.identity
+                };
+
+                ReplayPlaybackControls.playbackControls.transform.position = position;
+                ReplayPlaybackControls.playbackControls.transform.rotation = rotation;
             }
                 
         }));
@@ -1323,6 +1353,8 @@ public class Main : MelonMod
             playerTag.transform.localScale = Vector3.one * 0.5f;
             playerTag.transform.localPosition = new Vector3(0, -0.0073f + (-0.1091f * index), -0.0098f);
             playerTag.transform.localRotation = Quaternion.identity;
+
+            playerTag.transform.GetChild(0).GetChild(1).GetChild(6).gameObject.SetActive(false);
         
             var button = playerTag.transform.GetChild(0).GetComponent<InteractionButton>();
             button.onPressed.RemoveAllListeners();
@@ -1726,7 +1758,7 @@ public class Main : MelonMod
         pathTMP.enableWordWrapping = false;
         pathTMP.alignment = TextAlignmentOptions.Left;
         pathTMP.text = "Replays";
-        pathTMP.color = new Color(0.3686f, 0.2863f, 0.2235f);
+        pathTMP.color = new Color(0.102f, 0.051f, 0.0275f);
 
         var replayPageSelectorGO = GameObject.Instantiate(pageSelectorGO, replayExplorerGO.transform);
         replayPageSelectorGO.name = "Page Selector";

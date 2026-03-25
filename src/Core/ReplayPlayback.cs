@@ -449,8 +449,7 @@ public class ReplayPlayback
             if (p == null) continue;
             wasHostById[p.MasterId] = p.WasHost;
         }
-            
-
+        
         Player host = null;
         Player local = Main.LocalPlayer;
         var middle = new List<Player>();

@@ -116,14 +116,14 @@ At the bottom of the panel, two buttons let you switch between pages of entries.
 ---
 
 ## Developers
-The replay format is documented [here](wiki/4920-replay-format-documentation)
-The documentation for the API is found [here](wiki/4918-api-documentation/)
+The replay format is documented [here](docs/ReplayFormat)
+The documentation for the API is found [here](docs/API/README.md)
 
 ### Tools:
-- [Binary format spec](docs/ReplayFormat/README.md): `wiki/4920-replay-format-documentation`
-- [ImHex pattern](docs/ReplayFormat/ReplayFile.hexpat): `https://github.com/xLoadingx/ReplayMod/docs/ReplayFormat/ReplayFile.hexpat`
-- [Python Reader](BlenderPlugin/replay_mod_importer.py): `https://github.com/xLoadingx/ReplayMod/BlenderPlguin/replay_mod_importer.py`
-- [Example Extension Mod](docs/API/ExampleMod.cs): `wiki/4919-api-example-mod/`
+- [Binary format spec](docs/ReplayFormat/README.md): `docs/ReplayFormat/README.md`
+- [ImHex pattern](docs/ReplayFormat/ReplayFile.hexpat): `docs/ReplayFormat/ReplayFile.hexpat`
+- [Python Reader](BlenderPlugin/replay_mod_importer.py): `BlenderPlguin/replay_mod_importer.py`
+- [Example Extension Mod](docs/API/ExampleMod.cs): `docs/API/ExampleMod.cs`
 
 ---
 
@@ -145,7 +145,7 @@ Thanks to everyone who helped test ReplayMod and report issues:
 
 boxyk9, Roydaboy27, Dr.Rock, MatsuNoKi, ContagiousPow, iListen2Sound,  
 Footi, Lemmi05, @pple, WillNinja08, Peanut, BlueEyedFox, Fjm12, Pep,  
-Hudnimynini, Yiak65, Grand, ChimmyTv, and Alexderus117
+Hudnimynini, Yiak65, Grand, ChimmyTv, Alexderus117, and BIVN
 
 ---
 

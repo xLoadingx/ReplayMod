@@ -145,7 +145,7 @@ Thanks to everyone who helped test ReplayMod and report issues:
 
 boxyk9, Roydaboy27, Dr.Rock, MatsuNoKi, ContagiousPow, iListen2Sound,  
 Footi, Lemmi05, @pple, WillNinja08, Peanut, BlueEyedFox, Fjm12, Pep,  
-Hudnimynini, Yiak65, Grand, ChimmyTv, and Alexderus117
+Hudnimynini, Yiak65, Grand, ChimmyTv, Alexderus117, and BIVN
 
 ---
 
