@@ -80,6 +80,10 @@ public class ReplayPlayback
     public Clone[] PlaybackPlayers;
     public PlaybackPlayerState[] playbackPlayerStates;
     public static Player povPlayer;
+    
+    // Player Pool
+    public GameObject playerPoolRoot;
+    public List<Clone> playerPool = new();
 
     // Pedestals
     public List<GameObject> replayPedestals = new();
@@ -292,7 +296,8 @@ public class ReplayPlayback
                 {
                     playerMeasurement = PlaybackPlayers[i].Controller.assignedPlayer.Data.PlayerMeasurement,
                     leftShiftstone = shiftstones[0],
-                    rightShiftstone = shiftstones[1]
+                    rightShiftstone = shiftstones[1],
+                    visualData = PlaybackPlayers[i].Controller.assignedPlayer.Data.VisualData.ToPlayfabDataString()
                 };
             }
         
@@ -395,7 +400,14 @@ public class ReplayPlayback
             GameObject.Destroy(replayStructures);
 
         foreach (var player in PlaybackPlayers)
+        {
+            if (player == null) continue;
+            
             PlayerManager.instance.AllPlayers.Remove(player.Controller.assignedPlayer);
+
+            player.gameObject.SetActive(false);
+            player.Controller.transform.SetParent(playerPoolRoot.transform);
+        }
         
         if (replayPlayers != null)
             GameObject.Destroy(replayPlayers);
@@ -479,26 +491,77 @@ public class ReplayPlayback
     
     private IEnumerator SpawnClones(Action done = null)
     {
-        PlaybackPlayers = new Clone[currentReplay.Header.Players.Length];
+        int count = currentReplay.Header.Players.Length;
+        PlaybackPlayers = new Clone[count];
 
-        for (int i = 0; i < PlaybackPlayers.Length; i++)
+        var frame0 = currentReplay.Frames[0];
+
+        // Non-greedy pooling algorithm
+        var chosen = new Clone[count];
+        var used = new HashSet<Clone>();
+        
+        // Exact visual matches
+        for (int i = 0; i < count; i++)
+        {
+            var visual = frame0.Players[i]?.visualData;
+            if (visual == null) continue;
+
+            foreach (var c in playerPool)
+            {
+                if (!used.Contains(c) && c.Controller.assignedPlayer.Data.VisualData.ToPlayfabDataString() == visual)
+                {
+                    chosen[i] = c;
+                    used.Add(c);
+                    break;
+                }
+            }
+        }
+
+        // Fill the remaining players who
+        // didn't have an exact match in visuals
+        for (int i = 0; i < count; i++)
+        {
+            if (chosen[i] != null) continue;
+
+            foreach (var c in playerPool)
+            {
+                if (!used.Contains(c))
+                {
+                    chosen[i] = c;
+                    used.Add(c);
+                    break;
+                }
+            }
+        }
+        
+        // Assignment
+        for (int i = 0; i < count; i++)
         {
             var pInfo = currentReplay.Header.Players[i];
 
             if (pInfo == null)
             {
-                Main.ReplayError($"Header.Players[{i}] is null.");
+                Main.DebugLog($"Header.Players[{i}] is null.");
                 continue;
             }
-            
-            Clone temp = null;
-            MelonCoroutines.Start(BuildClone(pInfo, c => temp = c));
 
-            while (temp == null)
-                yield return null;
+            Clone temp = chosen[i];
 
+            // Build new players if count
+            // is higher than the amount of pooled players
+            if (temp == null)
+            {
+                MelonCoroutines.Start(BuildClone(pInfo, c => temp = c));
+
+                while (temp == null)
+                    yield return null;
+
+                playerPool.Add(temp);
+            }
+
+            temp.gameObject.SetActive(true);
             PlaybackPlayers[i] = temp;
-            PlaybackPlayers[i].Controller.transform.SetParent(replayPlayers.transform);
+            temp.Controller.transform.SetParent(replayPlayers.transform);
         }
 
         done?.Invoke();

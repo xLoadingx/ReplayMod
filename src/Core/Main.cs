@@ -5,7 +5,6 @@ using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.Combat.ShiftStones;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Managers;
-using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Networking.MatchFlow;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
@@ -43,7 +42,7 @@ public static class BuildInfo
 {
     public const string Name = "ReplayMod";
     public const string Author = "ERROR";
-    public const string Version = "1.0.0";
+    public const string Version = "1.0.2";
     public const string FormatVersion = "1.0.0";
 }
 
@@ -191,8 +190,6 @@ public class Main : MelonMod
         {
             if ((bool)EnableMatchEndMarker.SavedValue)
                 Recording.AddMarker("core.matchEnded", Color.black);
-            
-            if (Recording.isRecording) Recording.StopRecording();
         };
         
         ReplayFiles.Init();
@@ -366,6 +363,14 @@ public class Main : MelonMod
         
         if (Recording.isRecording || Recording.isBuffering)
             Recording.SetupRecordingData();
+
+        if (Playback.playerPoolRoot == null)
+        {
+            GameObject playerPoolRoot = new GameObject("[ReplayMod] Player Pool Root");
+            GameObject.DontDestroyOnLoad(playerPoolRoot);
+            
+            Playback.playerPoolRoot = playerPoolRoot;
+        }
 
         var vr = LocalPlayer.Controller.transform.GetChild(2);
         replayTable.metadataText.GetComponent<LookAtPlayer>().lockX = true;
@@ -785,6 +790,7 @@ public class Main : MelonMod
 
         var loadReplayButtonComp = loadReplayButton.transform.GetChild(0).GetComponent<InteractionButton>();
         loadReplayButtonComp.enabled = true;
+        loadReplayButtonComp.longPressTime = 0.25f;
         loadReplayButtonComp.OnPressed.RemoveAllListeners();
 
         loadReplayButtonComp.onPressedAudioCall = loadReplayButtonComp.longPressAudioCall;
@@ -841,6 +847,7 @@ public class Main : MelonMod
 
         var crystalizeButtonComp = crystalizeButton.transform.GetChild(0).GetComponent<InteractionButton>();
         crystalizeButtonComp.enabled = true;
+        crystalizeButtonComp.longPressTime = 0.2f;
         crystalizeButtonComp.OnPressed.RemoveAllListeners();
 
         replayTable.crystalizeButton = crystalizeButtonComp;
@@ -1462,6 +1469,7 @@ public class Main : MelonMod
         var deleteButtonComp = deleteButton.transform.GetChild(0).GetComponent<InteractionButton>();
         
         deleteButtonComp.onPressedAudioCall = loadReplayButtonComp.onPressedAudioCall;
+        deleteButtonComp.longPressTime = 1f;
         
         deleteButtonComp.OnPressed.RemoveAllListeners();
         deleteButtonComp.OnPressed.AddListener((UnityAction)(() =>

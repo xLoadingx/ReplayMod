@@ -1,3 +1,19 @@
+# 1.0.1
+- Moved replay tables to new "Multiplayer Maps in Singleplayer" button positions.
+- Changed 'Exit Scene' button to 'Exit Map'
+- Fixed playback controls opening in the wrong place when using the button.
+- Fixed pink background on the player selector.
+- Changed color of explorer path to be more visible.
+- Made sure to put the images actually in the zip file
+- Made sure the readme linked to the github/wiki pages instead.
+
+- Fixed errors with DebugLog
+- Fixed buttons not being visible sometimes.
+- Fixed shiftstones disappearing when loading back from a replay.
+- Fixed local healthbars appearing when a replay is loaded.
+- Fixed fistbump coin pool being named wrong.
+
+
 # 1.0.0
 - Created
 

@@ -297,6 +297,8 @@ public class Patches
         static void Prefix()
         {
             Main.Playback.StopReplay();
+            
+            if (Main.Recording.isRecording) Main.Recording.StopRecording();
 
             var shiftstones = Main.LocalPlayer.Controller.PlayerShiftstones.GetEquippedShiftstones();
             Main.instance.leftShiftstonePool = shiftstones[0]?.resourceName;
