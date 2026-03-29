@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using ReplayMod.Replay.Serialization;
@@ -27,8 +28,11 @@ public class ReplayExplorer
         Date,
         Duration,
         Map,
+        [Display(Name = "Player Count")]
         PlayerCount,
+        [Display(Name = "Opponent BP")]
         OpponentBP,
+        [Display(Name = "Marker Density")]
         MarkerDensity
     }
 
@@ -54,8 +58,7 @@ public class ReplayExplorer
         if (Main.instance.ExplorerSorting == null)
             return;
         
-        Enum.TryParse((string)Main.instance.ExplorerSorting.Value, true, out SortingType sortingType);
-        currentReplayEntries = GetEntries(sortingType);
+        currentReplayEntries = GetEntries(Main.instance.ExplorerSorting.Value);
         
         currentIndex = Clamp(currentIndex, -1, currentReplayEntries.Count - 1);
         
@@ -123,7 +126,7 @@ public class ReplayExplorer
     private List<Entry> SortFiles(List<Entry> files, SortingType sorting)
     {
         IOrderedEnumerable<Entry> query =
-            (bool)Main.instance.FavoritesFirst.SavedValue
+            Main.instance.FavoritesFirst.Value
                 ? files.OrderByDescending(f => f.header is { isFavorited: true })
                 : files.OrderBy(_ => 0);
         

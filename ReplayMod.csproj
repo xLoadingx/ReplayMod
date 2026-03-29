@@ -17,6 +17,9 @@
       <Reference Include="RumbleModdingAPI">
         <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\Mods\RumbleModdingAPI.dll</HintPath>
       </Reference>
+      <Reference Include="UIFramework">
+        <HintPath>..\..\SteamLibrary\steamapps\common\RUMBLE\Mods\UIFramework.dll</HintPath>
+      </Reference>
     </ItemGroup>
   
     <ItemGroup>

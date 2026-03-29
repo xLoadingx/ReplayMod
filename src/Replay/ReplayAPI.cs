@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using MelonLoader;
 using ReplayMod.Core;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
@@ -12,6 +13,7 @@ using RumbleModUIPlus;
 using UnityEngine;
 using BuildInfo = ReplayMod.Core.BuildInfo;
 using CompressionLevel = System.IO.Compression.CompressionLevel;
+using Main = ReplayMod.Core.Main;
 using Mod = RumbleModUI.Mod;
 
 namespace ReplayMod.Replay;
@@ -221,14 +223,14 @@ public static class ReplayAPI
     public static IReadOnlyList<ReplayExplorer.Entry> GetPage() => ReplayFiles.explorer.GetPage();
     
     /// <summary>
-    /// Returns the ModUI reference of the mod.
-    /// </summary>
-    public static Mod ReplayMod => Main.replayMod;
-    
-    /// <summary>
     /// Gets the list of all player clones in the active playback.
     /// </summary>
     public static IReadOnlyList<ReplayPlayback.Clone> Players => Main.Playback.PlaybackPlayers;
+
+    /// <summary>
+    /// Gets the list of all currently pooled players (unused players)
+    /// </summary>
+    public static IReadOnlyList<ReplayPlayback.Clone> PlayerPool => Main.Playback.playerPool;
     
     /// <summary>
     /// Gets the list of all playback structures in the active playback.
@@ -372,8 +374,6 @@ public static class ReplayAPI
         }
         
         _extensions.Add(extension);
-        
-        Main.replayMod.GetFromFile();
         Main.instance.LoggerInstance.Msg($"Extension '{extension.Id}' created");
 
         return extension;
@@ -555,18 +555,18 @@ public abstract class ReplayExtension
     /// The settings folder for this extension.
     /// Additional settings can be added to this folder after registration.
     /// </summary>
-    public ModSettingFolder Settings { get; internal set; }
+    public MelonPreferences_Category Settings { get; internal set; }
     
     /// <summary>
     /// The enable toggle controlling whether this extension
     /// is allowed to serialize its data.
     /// </summary>
-    public ModSetting<bool> Enabled { get; internal set; }
-    
+    public MelonPreferences_Entry<bool> Enabled { get; internal set; }
+
     /// <summary>
     /// Gets whether this extension is currently enabled.
     /// </summary>
-    public bool IsEnabled => (bool)Enabled.SavedValue;
+    public bool IsEnabled => Enabled.Value;
 
     /// <summary>
     /// Called when building the replay archive.

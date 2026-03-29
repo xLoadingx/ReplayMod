@@ -378,7 +378,7 @@ public class ReplaySettings : MonoBehaviour
 
             AudioManager.instance.Play(ReplayCache.SFX["Call_GearMarket_GenericButton_Press"], transform.position);
         
-            if ((bool)Main.instance.EnableHaptics.SavedValue)
+            if (Main.instance.EnableHaptics.Value)
                 Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(0.6f, isLeft ? 0.15f : 0f, 0.6f, !isLeft ? 0.15f : 0f);
         }
 
@@ -405,7 +405,7 @@ public class ReplaySettings : MonoBehaviour
 
             AudioManager.instance.Play(ReplayCache.SFX["Call_Interactionbase_ButtonRelease"], transform.position);
         
-            if ((bool)Main.instance.EnableHaptics.SavedValue)
+            if (Main.instance.EnableHaptics.Value)
                 Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(0.3f, isLeft ? 0.15f : 0f, 0.3f, !isLeft ? 0.15f : 0f);
         }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.Combat.ShiftStones;
@@ -10,6 +11,7 @@ using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Slabs.Forms;
 using Il2CppRUMBLE.Social.Phone;
+using Il2CppSystem.IO;
 using Il2CppTMPro;
 using MelonLoader;
 using ReplayMod.Replay;
@@ -17,8 +19,7 @@ using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using RumbleModdingAPI.RMAPI;
-using RumbleModUI;
-using RumbleModUIPlus;
+using UIFramework;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.VFX;
@@ -27,14 +28,12 @@ using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using BuildInfo = ReplayMod.Core.BuildInfo;
 using InteractionButton = Il2CppRUMBLE.Interactions.InteractionBase.InteractionButton;
 using Main = ReplayMod.Core.Main;
-using Mod = RumbleModUIPlus.Mod;
 using Random = UnityEngine.Random;
-using Tags = RumbleModUIPlus.Tags;
 using Utilities = ReplayMod.Replay.Utilities;
 
 [assembly: MelonInfo(typeof(Main), BuildInfo.Name, BuildInfo.Version, BuildInfo.Author)]
 [assembly: MelonGame("Buckethead Entertainment", "RUMBLE")]
-[assembly: MelonAdditionalDependencies("RumbleModdingAPI","RumbleModUIPlus")]
+[assembly: MelonAdditionalDependencies("RumbleModdingAPI","UIFramework")]
 
 namespace ReplayMod.Core;
 
@@ -46,18 +45,6 @@ public static class BuildInfo
     public const string FormatVersion = "1.0.0";
 }
 
-public class Validation : ValidationParameters
-{
-    public override bool DoValidation(string Input)
-    {
-        if (Enum.TryParse(typeof(ReplayExplorer.SortingType), Input, true, out _))
-            return true;
-        
-        Main.ReplayError();
-        return false;
-    }
-}
-
 public class Main : MelonMod
 {
     // Runtime
@@ -67,84 +54,98 @@ public class Main : MelonMod
 
     public static ReplayPlayback Playback;
     public static ReplayRecording Recording;
-    
+
     // Local player
     public static Player LocalPlayer => PlayerManager.instance.localPlayer;
     public Transform leftHand, rightHand, head;
     public string leftShiftstonePool, rightShiftstonePool;
-    
+
     // Recording FX / timers
     public GameObject clapperboardVFX;
     public bool hasPlayed;
     public float heldTime, soundTimer = 0f;
     public float lastTriggerTime = 0f;
-    
+
     // UI
+    public bool UIInitialized = false;
+    
     public ReplayTable replayTable;
     public GameObject flatLandRoot;
     public bool? lastFlatLandActive;
 
     public ReplaySettings replaySettings;
     public object crystalBreakCoroutine;
-    
+
     // ------ Settings ------
-    
+
     public const float errorsArmspan = 1.2744f;
     
-    public static Mod replayMod = new();
+    private const string USER_DATA = "UserData/ReplayMod/Settings/";
+    private const string CONFIG_FILE = "config.cfg";
 
     // Recording
-    public ModSetting<int> TargetRecordingFPS = new();
-    public ModSetting<bool> AutoRecordMatches = new();
-    public ModSetting<bool> AutoRecordParks = new();
-    
-    public ModSetting<bool> HandFingerRecording = new();
-    public ModSetting<bool> CloseHandsOnPose = new();
-    
+    public MelonPreferences_Entry<int> TargetRecordingFPS = new();
+    public MelonPreferences_Entry<bool> AutoRecordMatches = new();
+    public MelonPreferences_Entry<bool> AutoRecordParks = new();
+
+    public MelonPreferences_Entry<bool> HandFingerRecording = new();
+    public MelonPreferences_Entry<bool> CloseHandsOnPose = new();
+
     // Automatic Markers - Match End
-    public ModSetting<bool> EnableMatchEndMarker = new();
-    
+    public MelonPreferences_Entry<bool> EnableMatchEndMarker = new();
+
     // Automatic Markers - Round End
-    public ModSetting<bool> EnableRoundEndMarker = new();
-    
+    public MelonPreferences_Entry<bool> EnableRoundEndMarker = new();
+
     // Automatic Markers - Large Damage
-    public ModSetting<bool> EnableLargeDamageMarker;
-    public ModSetting<int> DamageThreshold;
-    public ModSetting<float> DamageWindow;
-    
+    public MelonPreferences_Entry<bool> EnableLargeDamageMarker;
+    public MelonPreferences_Entry<int> DamageThreshold;
+    public MelonPreferences_Entry<float> DamageWindow;
+
     // Playback
-    public ModSetting<bool> StopReplayWhenDone;
-    public ModSetting<bool> PlaybackControlsFollow;
-    public ModSetting<bool> DestroyControlsOnPunch;
-    public ModSetting<bool> ToggleUI;
-    
+    public MelonPreferences_Entry<bool> StopReplayWhenDone;
+    public MelonPreferences_Entry<bool> PlaybackControlsFollow;
+    public MelonPreferences_Entry<bool> DestroyControlsOnPunch;
+    public MelonPreferences_Entry<bool> ToggleUI;
+
     // Playback Toggles
-    public ModSetting<bool> ToggleNameplate;
-    public ModSetting<bool> ToggleHealthBar;
-    public ModSetting<bool> ToggleDust;
-    public ModSetting<bool> ToggleHitmarkers;
-    public ModSetting<bool> ToggleRockCam;
-    
+    public MelonPreferences_Entry<bool> ToggleNameplate;
+    public MelonPreferences_Entry<bool> ToggleHealthBar;
+    public MelonPreferences_Entry<bool> ToggleDust;
+    public MelonPreferences_Entry<bool> ToggleHitmarkers;
+    public MelonPreferences_Entry<bool> ToggleRockCam;
+
     // Replay Explorer
-    public ModSetting<string> ExplorerSorting;
-    public ModSetting<bool> SortingDirection;
-    public ModSetting<bool> FavoritesFirst;
-    
+    public MelonPreferences_Entry<ReplayExplorer.SortingType> ExplorerSorting;
+    public MelonPreferences_Entry<bool> SortingDirection;
+    public MelonPreferences_Entry<bool> FavoritesFirst;
+
     // Replay Buffer
-    public ModSetting<bool> ReplayBufferEnabled;
-    public ModSetting<int> ReplayBufferDuration;
+    public MelonPreferences_Entry<bool> ReplayBufferEnabled;
+    public MelonPreferences_Entry<int> ReplayBufferDuration;
 
     // Controls
-    public ModSetting<string> LeftHandControls;
-    public ModSetting<string> RightHandControls;
+    public enum ControllerAction
+    {
+        None,
+        [Display(Name = "Toggle Recording")]
+        ToggleRecording,
+        [Display(Name = "Save Replay Buffer")]
+        SaveReplayBuffer,
+        [Display(Name = "Add Marker")]
+        AddMarker
+    }
+    
+    public MelonPreferences_Entry<ControllerAction> LeftHandControls;
+    public MelonPreferences_Entry<ControllerAction> RightHandControls;
 
-    public ModSetting<bool> EnableHaptics;
-    
+    public MelonPreferences_Entry<bool> EnableHaptics;
+
     // Other
-    public ModSetting<float> tableOffset;
-    public ModSetting<bool> enableDebug;
-    public ModSettingFolder extensionsFolder;
-    
+    public MelonPreferences_Entry<float> tableOffset;
+    public MelonPreferences_Entry<bool> enableDebug;
+    public MelonPreferences_Category extensionsFolder;
+
     // ------------
 
     public static void ReplayError(string message = null, Vector3 position = default)
@@ -160,27 +161,178 @@ public class Main : MelonMod
             );
         }
         catch { }
-        
+
         if (!string.IsNullOrEmpty(message))
-            instance.LoggerInstance.Error(message);   
+            instance.LoggerInstance.Error(message);
     }
 
     public static void DebugLog(string message)
     {
-        if ((bool)(instance.enableDebug?.SavedValue ?? false) && !string.IsNullOrEmpty(message))
+        if ((instance.enableDebug?.Value ?? false) && !string.IsNullOrEmpty(message))
             instance.LoggerInstance.Warning(message);
     }
-    
+
     // ----- Init -----
-    
+
+    public override void OnInitializeMelon()
+    {
+        if (!Directory.Exists(USER_DATA))
+            Directory.CreateDirectory(USER_DATA);
+
+        string configPath = Path.Combine(USER_DATA, CONFIG_FILE);
+
+        var recordingFolder = MelonPreferences.CreateCategory("Recording");
+        recordingFolder.SetFilePath(configPath);
+        
+        TargetRecordingFPS = recordingFolder.CreateEntry("Recording_FPS", 50, "Recording FPS", "The target frame rate used when recording replays.\nThis is limited by the game's actual frame rate.");
+        AutoRecordMatches = recordingFolder.CreateEntry("Automatically_Record_Matches", true, "Automatically Record Matches", "Automatically start recording when you join a match");
+        AutoRecordParks = recordingFolder.CreateEntry("Automatically_Record_Parks", false, "Automatically Record Parks", "Automatically start recording when you join a park");
+        
+        HandFingerRecording = recordingFolder.CreateEntry("Finger_Animation_Recording", true, "Finger Animation Recording", "Controls whether finger input values are recorded into the replay.");
+        CloseHandsOnPose = recordingFolder.CreateEntry("Close_Hands_On_Pose", true, "Close Hands On Pose", "Closes the hands of a clone when they do a pose.");
+        
+        var automaticMarkersFolder = MelonPreferences.CreateCategory("Automatic_Markers", "Automatic Markers");
+        automaticMarkersFolder.SetFilePath(configPath);
+        
+        EnableMatchEndMarker = automaticMarkersFolder.CreateEntry("Match_End_Marker", true, "Match End Marker", "Automatically adds a marker at the end of a match.");
+        EnableRoundEndMarker = automaticMarkersFolder.CreateEntry("Round_End_Marker", true, "Round End Marker", "Automatically adds a marker at the end of a round.");
+
+        EnableLargeDamageMarker = automaticMarkersFolder.CreateEntry("Large_Damage_Marker", false, "Large Damage Marker", "Automatically adds a marker when a player takes a large amount of damage in a short amount of time.");
+        DamageThreshold = automaticMarkersFolder.CreateEntry("Damage_Threshold", 12, "Damage Threshold", "The minimum total damage required to create a marker.");
+        DamageWindow = automaticMarkersFolder.CreateEntry("Damage_Window", 1f, "Damage Window (Seconds)", "The time window (in seconds) during which damage is summed to determine whether a marker should be created.");
+
+        var playbackFolder = MelonPreferences.CreateCategory("Playback");
+        playbackFolder.SetFilePath(configPath);
+        
+        StopReplayWhenDone = playbackFolder.CreateEntry("Stop_Replay_On_Finished", false, "Stop Replay On Finished", "Stops a replay when it reaches the end or beginning of its duration.");
+        PlaybackControlsFollow = playbackFolder.CreateEntry("Playback_Controls_Follow_Player", false, "Playback Controls Follow Player", "Makes the playback controls menu follow you when opened.");
+        DestroyControlsOnPunch = playbackFolder.CreateEntry("Destroy_Controls_On_Punch", true, "Destroy Controls On Punch", "Destroys the playback controls when you punch the slab hard enough.");
+        
+        var playbackTogglesFolder = MelonPreferences.CreateCategory("Toggles");
+        playbackTogglesFolder.SetFilePath(configPath);
+
+        ToggleUI = playbackTogglesFolder.CreateEntry("Toggle_UI", true, "Toggle UI", "Toggles whether the UI for selecting replays is visible.");
+        ToggleNameplate = playbackTogglesFolder.CreateEntry("Toggle_Player_Nameplates", false, "Toggle Player Nameplates", "Toggles whether the nameplate on replay clones are visible");
+        ToggleHealthBar = playbackTogglesFolder.CreateEntry("Toggle_Player_Healthbars", true, "Toggle Player Healthbars", "Toggles whether the healthbar on replay clones are visible.");
+        ToggleDust = playbackTogglesFolder.CreateEntry("Toggle_Dust", true, "Toggle Dust", "Toggles whether dust from replay structures are visible.");
+        ToggleHitmarkers = playbackTogglesFolder.CreateEntry("Toggle_Hitmarkers", true, "Toggle Hitmarkers", "Toggles whether hitmarkers (on remote player damage) are visible.");
+        ToggleRockCam = playbackTogglesFolder.CreateEntry("Toggle_Rock_Cam", true, "Toggle Rock Cam", "Toggles whether replay clones Rock Cams are visible.");
+
+        var explorerFolder = MelonPreferences.CreateCategory("Replay_Explorer", "Replay Explorer");
+        explorerFolder.SetFilePath(configPath);
+
+        ExplorerSorting = explorerFolder.CreateEntry("Sorting_Option", ReplayExplorer.SortingType.Date, "Sorting Option", "The sorting option for the list of replays.");
+        SortingDirection = explorerFolder.CreateEntry("Reverse_Sorting", false, "Reverse Sorting", "If enabled, reverses the sort order.");
+        FavoritesFirst = explorerFolder.CreateEntry("Favorites_First", true, "Put Favorites First", "Toggles whether favorited replays should always come first in the list.");
+
+        var bufferFolder = MelonPreferences.CreateCategory("Buffer");
+        bufferFolder.SetFilePath(configPath);
+
+        ReplayBufferEnabled = bufferFolder.CreateEntry("Enable_Replay_Buffer", false, "Enable Replay Buffer", "Keeps a rolling buffer of recent gameplay that can be saved as a replay.");
+        ReplayBufferDuration = bufferFolder.CreateEntry("Replay_Buffer_Duration", 30, "Replay Buffer Duration (seconds)", "How much gameplay time (in seconds) is kept in the replay buffer.");
+        
+        var controlsFolder = MelonPreferences.CreateCategory("Controls");
+        controlsFolder.SetFilePath(configPath);
+
+        LeftHandControls = controlsFolder.CreateEntry("Left_Controller_Binding", ControllerAction.None, "Left Controller Binding",
+            "Selects the action performed when both buttons on the left controller are pressed at the same time.");
+
+        RightHandControls = controlsFolder.CreateEntry("Right_Controller_Binding", ControllerAction.None, "Right Controller Binding",
+            "Selects the action performed when both buttons on the right controller are pressed at the same time.");
+
+        EnableHaptics = controlsFolder.CreateEntry("Enable_Haptics", true, "Enable Haptics",
+            "Plays controller haptics when actions such as saving a replay or adding a marker are performed.");
+
+        if (ReplayAPI.Extensions.Any())
+        {
+            foreach (var ext in ReplayAPI.Extensions)
+            {
+                var extFolder = MelonPreferences.CreateCategory($"Extension_{ext.Id}", $"{ext.Id}");
+                extFolder.SetFilePath(configPath);
+
+                var toggle = extFolder.CreateEntry("Enabled", true, $"Toggle {ext.Id}", "Toggles the extension on/off");
+
+                ext.Enabled = toggle;
+            }
+        }
+        
+        var otherFolder = MelonPreferences.CreateCategory("Other");
+        otherFolder.SetFilePath(configPath);
+
+        tableOffset = otherFolder.CreateEntry("Replay_Table_Height_Offset", 0f, "Replay Table Height Offset",
+            "Adjusts the vertical offset of the replay table in meters.\nUseful if the table feels too high or too low.");
+
+        enableDebug = otherFolder.CreateEntry("Enable_Debug", false, "Enable Debug",
+            "Enables debug logs.\nIf something breaks, turn this on and wait for it to happen again.\nInclude your log when reporting bugs to ERROR.");
+        
+        ReplayBufferEnabled.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            if (value && !Recording.isBuffering)
+                Recording.StartBuffering();
+
+            Recording.isBuffering = value;
+        });
+        
+        ExplorerSorting.OnEntryValueChanged.Subscribe((_, _) => ReplayFiles.ReloadReplays());
+        SortingDirection.OnEntryValueChanged.Subscribe((_, _) => ReplayFiles.ReloadReplays());
+        FavoritesFirst.OnEntryValueChanged.Subscribe((_, _) => ReplayFiles.ReloadReplays());
+        
+        ToggleNameplate.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            if (!Playback?.isPlaying ?? true)
+                return;
+
+            foreach (var player in Playback.PlaybackPlayers)
+                player.Controller.PlayerNameTag.gameObject.SetActive(value);
+        });
+
+        ToggleHealthBar.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            if (!Playback?.isPlaying ?? true)
+                return;
+
+            foreach (var player in Playback.PlaybackPlayers)
+                player.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(value);
+        });
+
+        ToggleRockCam.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            if (!Playback?.isPlaying ?? true)
+                return;
+
+            foreach (var player in Playback.PlaybackPlayers)
+                player.Controller.PlayerLIV.LckTablet.gameObject.SetActive(value);
+        });
+        
+        ToggleUI.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            replayTable?.gameObject.SetActive(value);
+            replayTable?.metadataText?.gameObject.SetActive(value);
+        });
+        
+        UI.Register(this,
+            recordingFolder,
+            automaticMarkersFolder,
+            playbackFolder,
+            playbackTogglesFolder,
+            explorerFolder,
+            bufferFolder,
+            controlsFolder,
+            otherFolder
+        );
+
+        UIInitialized = true;
+    }
+
     public override void OnLateInitializeMelon()
     {
-        UI.instance.UI_Initialized += OnUIInitialized;
+        if (!UIInitialized) return;
+        
         Actions.onMapInitialized += (scene) => OnMapInitialized();
         
         Actions.onRoundEnded += () =>
         {
-            if (!(bool)EnableRoundEndMarker.SavedValue)
+            if (!EnableRoundEndMarker.Value)
                 return;
 
             Recording.AddMarker("core.roundEnded", new Color(0.7f, 0.6f, 0.85f));
@@ -188,7 +340,7 @@ public class Main : MelonMod
 
         Actions.onMatchEnded += () =>
         {
-            if ((bool)EnableMatchEndMarker.SavedValue)
+            if (EnableMatchEndMarker.Value)
                 Recording.AddMarker("core.matchEnded", Color.black);
         };
         
@@ -212,7 +364,7 @@ public class Main : MelonMod
     
     public override void OnSceneWasLoaded(int buildIndex, string sceneName)
     {
-        if (currentScene == "Loader")
+        if (currentScene == "Loader" || !UIInitialized)
             return;
 
         DebugLog($"Scene loaded: {sceneName}");
@@ -236,6 +388,8 @@ public class Main : MelonMod
 
     public void OnMapInitialized()
     {
+        if (!UIInitialized) return;
+        
         var recordingIcon = Create.NewText().GetComponent<TextMeshPro>();
         recordingIcon.transform.SetParent(LocalPlayer.Controller.GetSubsystem<PlayerUI>().transform.GetChild(0));
         recordingIcon.name = "Replay Recording Icon";
@@ -248,7 +402,7 @@ public class Main : MelonMod
         
         ReplayRecording.recordingIcon = recordingIcon;
         
-        if (((currentScene is "Map0" or "Map1" && (bool)AutoRecordMatches.SavedValue && PlayerManager.instance.AllPlayers.Count > 1) || (currentScene == "Park" && (bool)AutoRecordParks.SavedValue)) && !ReplayPlayback.isReplayScene)
+        if (((currentScene is "Map0" or "Map1" && AutoRecordMatches.Value && PlayerManager.instance.AllPlayers.Count > 1) || (currentScene == "Park" && AutoRecordParks.Value)) && !ReplayPlayback.isReplayScene)
             Recording.StartRecording();
 
         if ((ReplayCache.SFX == null || ReplayCache.structurePools == null) && currentScene != "Loader")
@@ -358,7 +512,7 @@ public class Main : MelonMod
         
         ReplayPlaybackControls.Close();
         
-        if (currentScene != "Loader" && (bool)ReplayBufferEnabled.SavedValue)
+        if (currentScene != "Loader" && ReplayBufferEnabled.Value)
             Recording.StartBuffering();
         
         if (Recording.isRecording || Recording.isBuffering)
@@ -405,7 +559,7 @@ public class Main : MelonMod
 
     IEnumerator DelayedParkLoad()
     {
-        if ((bool)EnableHaptics.SavedValue)
+        if (EnableHaptics.Value)
             LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.1f, 1f, 0.1f);
         
         yield return new WaitForSeconds(2f);
@@ -436,234 +590,6 @@ public class Main : MelonMod
 
         Playback.LoadReplay(ReplayFiles.explorer.CurrentReplayPath);
         SimpleScreenFadeInstance.Progress = 0f;
-    }
-
-    public void OnUIInitialized()
-    {
-        replayMod.ModName = BuildInfo.Name;
-        replayMod.ModVersion = BuildInfo.Version;
-        replayMod.ModFormatVersion = BuildInfo.Version;
-
-        replayMod.SetFolder("ReplayMod/Settings");
-        replayMod.AddDescription("Description", "", "A mod that records scenes into a 3d file that you can replay", new Tags { IsSummary = true });
-
-        var recordingFolder = replayMod.AddFolder("Recording", "Controls how and when gameplay is recorded into replays.");
-
-        TargetRecordingFPS = replayMod.AddToList("Recording FPS", 50, "The target frame rate used when recording replays.\nThis is limited by the game's actual frame rate.", new Tags());
-        AutoRecordMatches = replayMod.AddToList("Automatically Record Matches", true, 0, "Automatically start recording when you join a match", new Tags());
-        AutoRecordParks = replayMod.AddToList("Automatically Record Parks", false, 0, "Automatically start recording when you join a park", new Tags());
-        
-        HandFingerRecording = replayMod.AddToList("Finger Animation Recording", true, 0, "Controls whether finger input values are recorded into the replay.", new Tags());
-        CloseHandsOnPose = replayMod.AddToList("Close Hands On Pose", true, 0, "Closes the hands of a clone when they do a pose.", new Tags());
-        
-        var automaticMarkersFolder = replayMod.AddFolder("Automatic Markers", "Automatically adds markers to replays when notable events occur.");
-
-        var matchEndFolder = replayMod.AddFolder("Match End", "Settings for markers added when a match ends.");
-        EnableMatchEndMarker = replayMod.AddToList("Enable Match End Marker", true, 0, "Automatically adds a marker at the end of a match.", new Tags());
-        matchEndFolder.AddSetting(EnableMatchEndMarker);
-
-        var roundEndFolder = replayMod.AddFolder("Round End", "Settings for markers added at the end of each round.");
-        EnableRoundEndMarker = replayMod.AddToList("Enable Round End Marker", true, 0, "Automatically adds a marker at the end of a round.", new Tags());
-        roundEndFolder.AddSetting(EnableRoundEndMarker);
-
-        var largeDamageFolder = replayMod.AddFolder("Large Damage", "Settings for markers triggered by bursts of high damage.");
-        EnableLargeDamageMarker = replayMod.AddToList("Enable Large Damage Marker", false, 0, "Automatically adds a marker when a player takes a large amount of damage in a short amount of time.", new Tags());
-        DamageThreshold = replayMod.AddToList("Damage Threshold", 12, "The minimum total damage required to create a marker.", new Tags());
-        DamageWindow = replayMod.AddToList("Damage Window (seconds)", 1f, "The time window (in seconds) during which damage is summed to determine whether a marker should be created.", new Tags());
-        
-        largeDamageFolder.AddSetting(EnableLargeDamageMarker)
-            .AddSetting(DamageThreshold)
-            .AddSetting(DamageWindow);
-
-        automaticMarkersFolder.AddSetting(matchEndFolder)
-            .AddSetting(roundEndFolder)
-            .AddSetting(largeDamageFolder);
-        
-        recordingFolder.AddSetting(TargetRecordingFPS)
-            .AddSetting(AutoRecordMatches)
-            .AddSetting(AutoRecordParks)
-            .AddSetting(HandFingerRecording)
-            .AddSetting(CloseHandsOnPose)
-            .AddSetting(automaticMarkersFolder);
-
-        var playbackFolder = replayMod.AddFolder("Playback", "Settings for playing back replays.");
-        
-        StopReplayWhenDone = replayMod.AddToList("Stop Replay On Finished", false, 0, "Stops a replay when it reaches the end or beginning of its duration.", new Tags());
-        PlaybackControlsFollow = replayMod.AddToList("Playback Controls Follow Player", false, 0, "Makes the playback controls menu follow you when opened.", new Tags());
-        DestroyControlsOnPunch = replayMod.AddToList("Destroy Controls On Punch", true, 0, "Destroys the playback controls when you punch the slab hard enough.", new Tags());
-
-        ToggleUI = replayMod.AddToList("Toggle UI", true, 0, "Toggles whether the UI for selecting replays is visible.", new Tags());
-        
-        var playbackTogglesFolder = replayMod.AddFolder("Toggles", "Toggles for playback visuals.");
-
-        ToggleNameplate = replayMod.AddToList("Toggle Player Nameplayes", false, 0, "Toggles whether the nameplate on replay clones are visible", new Tags());
-        ToggleHealthBar = replayMod.AddToList("Toggle Player Healthbars", true, 0, "Toggles whether the healthbar on replay clones are visible.", new Tags());
-        ToggleDust = replayMod.AddToList("Toggle Dust", true, 0, "Toggles whether dust from replay structures are visible.", new Tags());
-        ToggleHitmarkers = replayMod.AddToList("Toggle Hitmarkers", true, 0, "Toggles whether hitmarkers (on remote player damage) are visible.", new Tags());
-        ToggleRockCam = replayMod.AddToList("Toggle Rock Cam", true, 0, "Toggles whether replay clones Rock Cams are visible.", new Tags());
-
-        playbackTogglesFolder.AddSetting(ToggleNameplate);
-        playbackTogglesFolder.AddSetting(ToggleHealthBar);
-        playbackTogglesFolder.AddSetting(ToggleDust);
-        playbackTogglesFolder.AddSetting(ToggleHitmarkers);
-        playbackTogglesFolder.AddSetting(ToggleRockCam);
-        
-        playbackFolder.AddSetting(StopReplayWhenDone);
-        playbackFolder.AddSetting(PlaybackControlsFollow);
-        playbackFolder.AddSetting(DestroyControlsOnPunch);
-        playbackFolder.AddSetting(ToggleUI);
-        playbackFolder.AddSetting(playbackTogglesFolder);
-
-        var replayExplorerFolder = replayMod.AddFolder("Replay Explorer", "Settings for the replay explorer.");
-
-        string sortingOptionDesc =
-            "The sorting option for the list of replays.\n" +
-            "Available options:\n" +
-            string.Join("\n", Enum.GetNames(typeof(ReplayExplorer.SortingType)));
-        
-        ExplorerSorting = replayMod.AddToList("Sorting Option", "DateNewestFirst", sortingOptionDesc, new Tags());
-        SortingDirection = replayMod.AddToList("Reverse Sorting", false, 0, "If enabled, reverses the sort order.", new Tags());
-        FavoritesFirst = replayMod.AddToList("Put Favorites First", true, 0, "Toggles whether favorited replays should always come first in the list.", new Tags());
-
-        replayMod.AddValidation("Sorting Option", new Validation());
-        
-        replayExplorerFolder.AddSetting(ExplorerSorting);
-        replayExplorerFolder.AddSetting(SortingDirection);
-        replayExplorerFolder.AddSetting(FavoritesFirst);
-        
-        var replayBufferFolder = replayMod.AddFolder("Replay Buffer", "Settings for the replay buffer used to save recent gameplay.");
-
-        ReplayBufferEnabled = replayMod.AddToList("Enable Replay Buffer", false, 0, "Keeps a rolling buffer of recent gameplay that can be saved as a replay.", new Tags());
-        ReplayBufferDuration = replayMod.AddToList("Replay Buffer Duration (seconds)", 30, "How much gameplay time (in seconds) is kept in the replay buffer.", new Tags());
-        
-        replayBufferFolder.AddSetting(ReplayBufferEnabled);
-        replayBufferFolder.AddSetting(ReplayBufferDuration);
-        
-        var controlsFolder = replayMod.AddFolder("Controls", "Controller bindings and feedback settings for replay actions.");
-        
-        LeftHandControls = replayMod.AddToList("Left Controller Binding", "None",
-            "Selects the action performed when both buttons on the left controller are pressed at the same time.\n" +
-            "Possible values:\n" +
-            "- Toggle Recording\n" +
-            "- Save Replay Buffer\n" +
-            "- Add Marker (adds an event marker at the current time in a recording)\n" +
-            "- None\n" +
-            "Actions can be seperated by a comma to include multiple actions on press.", new Tags());
-        
-        RightHandControls = replayMod.AddToList("Right Controller Binding", "None",
-            "Selects the action performed when both buttons on the right controller are pressed at the same time.\n" +
-            "Possible values:\n" +
-            "- Toggle Recording\n" +
-            "- Save Replay Buffer\n" +
-            "- Add Marker (adds an event marker at the current time in a recording)\n" +
-            "- None\n" +
-            "Actions can be seperated by a comma to include multiple actions on press.", new Tags());
-
-        EnableHaptics = replayMod.AddToList("Enable Haptics", true, 0, "Plays controller haptics when actions such as saving a replay or adding a marker are performed.", new Tags());
-
-        controlsFolder.AddSetting(LeftHandControls)
-            .AddSetting(RightHandControls)
-            .AddSetting(EnableHaptics);
-
-        if (ReplayAPI.Extensions.Any())
-        {
-            extensionsFolder = replayMod.AddFolder("Extensions", "Settings for all registered extensions");
-
-            foreach (var ext in ReplayAPI.Extensions)
-            {
-                var extensionFolder = replayMod.AddFolder(ext.Id, $"Settings for the extension '{ext.Id}'");
-                extensionsFolder.AddSetting(extensionFolder);
-
-                var extensionToggle = replayMod.AddToList($"Toggle {ext.Id}", true, 0, "Toggles the extension on/off", new Tags());
-                extensionFolder.AddSetting(extensionToggle);
-
-                ext.Settings = extensionFolder;
-                ext.Enabled = extensionToggle;
-            }
-        }
-        
-        var otherFolder = replayMod.AddFolder("Other", "Miscellaneous settings.");
-
-        tableOffset = replayMod.AddToList("Replay Table Height Offset", 0f, "Adjusts the vertical offset of the replay table in meters.\nUseful if the table feels too high or too low.", new Tags());
-        enableDebug = replayMod.AddToList("Enable Debug", false, 0, "Enables debug logs.\nIf something breaks, turn this on and wait for it to happen again.\nInclude your log when reporting bugs to ERROR.", new Tags());
-        
-        otherFolder.AddSetting(tableOffset);
-        otherFolder.AddSetting(enableDebug);
-
-        ReplayBufferEnabled.SavedValueChanged += (obj, sender) =>
-        {
-            if ((bool)ReplayBufferEnabled.Value && !Recording.isBuffering)
-                Recording.StartBuffering();
-            
-            Recording.isBuffering = (bool)ReplayBufferEnabled.Value;
-        };
-        
-        var allowedBindings = new[] { "Toggle Recording", "Save Replay Buffer", "Add Marker", "None" };
-
-        bool IsValidBindingList(string input)
-        {
-            return input
-                .Split(',')
-                .Select(s => s.Trim())
-                .All(binding => 
-                    allowedBindings.Contains(binding, StringComparer.OrdinalIgnoreCase)
-                );
-        }
-        
-        LeftHandControls.SavedValueChanged += (obj, sender) =>
-        {
-            string value = (string)LeftHandControls.Value;
-            if (!IsValidBindingList(value)) 
-                ReplayError($"'{value}' is not a valid binding (Left Controller)");
-        };
-
-        RightHandControls.SavedValueChanged += (obj, sender) =>
-        {
-            string value = (string)RightHandControls.Value;
-            if (!IsValidBindingList(value))
-                ReplayError($"'{value}' is not a valid binding (Right Controller).");
-        };
-        
-        ExplorerSorting.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
-        SortingDirection.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
-        FavoritesFirst.SavedValueChanged += (obj, sender) => ReplayFiles.ReloadReplays();
-
-        ToggleNameplate.SavedValueChanged += (obj, sender) =>
-        {
-            if (!Playback?.isPlaying ?? true)
-                return;
-
-            foreach (var player in Playback.PlaybackPlayers)
-                player.Controller.PlayerNameTag.gameObject.SetActive((bool)ToggleNameplate.Value);
-        };
-
-        ToggleHealthBar.SavedValueChanged += (obj, sender) =>
-        {
-            if (!Playback?.isPlaying ?? true)
-                return;
-
-            foreach (var player in Playback.PlaybackPlayers)
-                player.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive((bool)ToggleHealthBar.Value);
-        };
-
-        ToggleRockCam.SavedValueChanged += (obj, sender) =>
-        {
-            if (!Playback?.isPlaying ?? true)
-                return;
-
-            foreach (var player in Playback.PlaybackPlayers)
-                player.Controller.PlayerLIV.LckTablet.gameObject.SetActive((bool)ToggleRockCam.Value);
-        };
-        
-        ToggleUI.SavedValueChanged += (obj, sender) =>
-        {
-            replayTable?.gameObject.SetActive((bool)ToggleUI.Value);
-            replayTable?.metadataText?.gameObject.SetActive((bool)ToggleUI.Value);
-        };
-        
-        replayMod.GetFromFile();
-        
-        UI.instance.AddMod(replayMod);
     }
 
     public void LoadReplayObjects()
@@ -2052,6 +1978,8 @@ public class Main : MelonMod
     
     public override void OnUpdate()
     {
+        if (!UIInitialized) return;
+        
         HandleReplayPose();
         ReplayPlaybackControls.Update();
 
@@ -2096,26 +2024,25 @@ public class Main : MelonMod
 
     public override void OnLateUpdate()
     {
+        if (!UIInitialized) return;
+        
         Recording?.HandleRecording();
         Playback?.HandlePlayback();
     }
 
     public override void OnFixedUpdate()
     {
-        if (currentScene == "Loader") return;
-
-        var rightActions = ((string)RightHandControls.SavedValue).Split(',').Select(a => a.Trim()).ToArray();
-        var leftActions = ((string)LeftHandControls.SavedValue).Split(',').Select(a => a.Trim()).ToArray();
+        if (currentScene == "Loader" || !UIInitialized) return;
         
         TryHandleController(
-            leftActions,
+            LeftHandControls.Value,
             Calls.ControllerMap.LeftController.GetPrimary(),
             Calls.ControllerMap.LeftController.GetSecondary(),
             true
         );
         
         TryHandleController(
-            rightActions,
+            RightHandControls.Value,
             Calls.ControllerMap.RightController.GetPrimary(),
             Calls.ControllerMap.RightController.GetSecondary(),
             false
@@ -2307,7 +2234,7 @@ public class Main : MelonMod
     }
 
     public void TryHandleController(
-        string[] actions,
+        ControllerAction action,
         float primary,
         float secondary,
         bool isLeft
@@ -2317,7 +2244,7 @@ public class Main : MelonMod
         {
             var haptics = LocalPlayer.Controller.GetSubsystem<PlayerHaptics>();
             
-            if ((bool)EnableHaptics.SavedValue)
+            if (EnableHaptics.Value)
             {
                 if (isLeft)
                     haptics.PlayControllerHaptics(1f, 0.05f, 0, 0);
@@ -2334,48 +2261,45 @@ public class Main : MelonMod
         
         lastTriggerTime = Time.time;
 
-        foreach (var action in actions)
+        if (action == ControllerAction.None)
+            return;
+        
+        DebugLog($"Controller Action | {(isLeft ? "Left" : "Right")} | {action}");
+        
+        switch (action)
         {
-            if (action.Equals("None", StringComparison.OrdinalIgnoreCase))
-                return;
-            
-            DebugLog($"Controller Action | {(isLeft ? "Left" : "Right")} | {action}");
-            
-            switch (action)
+            case ControllerAction.ToggleRecording:
             {
-                case "Toggle Recording":
-                {
-                    if (Recording.isRecording)
-                        Recording.StopRecording();
-                    else
-                        Recording.StartRecording();
+                if (Recording.isRecording)
+                    Recording.StopRecording();
+                else
+                    Recording.StartRecording();
 
-                    break;
-                }
-                
-                case "Save Replay Buffer":
-                {
-                    Recording.SaveReplayBuffer();
-                    PlayHaptics();
-                    break;
-                }
-
-                case "Add Marker":
-                {
-                    if (!Recording.isRecording && !Recording.isBuffering)
-                        break;
-
-                    Recording.AddMarker("core.manual", Color.white);
-                    PlayHaptics();
-                
-                    AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_BackwardLocked"], head.position);
-                    break;
-                }
-            
-                default:
-                    ReplayError($"'{action}' is not a valid binding ({(isLeft ? "Left Controller" : "Right Controller")}).");
-                    break;
+                break;
             }
+            
+            case ControllerAction.SaveReplayBuffer:
+            {
+                Recording.SaveReplayBuffer();
+                PlayHaptics();
+                break;
+            }
+
+            case ControllerAction.AddMarker:
+            {
+                if (!Recording.isRecording && !Recording.isBuffering)
+                    break;
+
+                Recording.AddMarker("core.manual", Color.white);
+                PlayHaptics();
+            
+                AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_BackwardLocked"], head.position);
+                break;
+            }
+        
+            default:
+                ReplayError($"'{action}' is not a valid binding ({(isLeft ? "Left Controller" : "Right Controller")}).");
+                break;
         }
     }
 }
@@ -2407,7 +2331,7 @@ public class TableFloat : MonoBehaviour
         
         startPos.y = Lerp(
             startPos.y, 
-            targetY + (float)Main.instance.tableOffset.SavedValue, 
+            targetY + Main.instance.tableOffset.Value, 
             Time.deltaTime * 4f
         );
         

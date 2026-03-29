@@ -105,7 +105,7 @@ public class ReplayPlayback
         {
             SetPlaybackTime(currentReplay.Frames[^1].Time);
             
-            if ((bool)Main.instance.StopReplayWhenDone.SavedValue)
+            if (Main.instance.StopReplayWhenDone.Value)
                 StopReplay();
             
             return;
@@ -115,7 +115,7 @@ public class ReplayPlayback
         {
             SetPlaybackTime(0f);
 
-            if ((bool)Main.instance.StopReplayWhenDone.SavedValue)
+            if (Main.instance.StopReplayWhenDone.Value)
                 StopReplay();
             
             return;
@@ -643,8 +643,8 @@ public class ReplayPlayback
 
         var clone = newPlayer.Controller.gameObject.AddComponent<Clone>();
 
-        newPlayer.Controller.PlayerNameTag.gameObject.SetActive((bool)Main.instance.ToggleNameplate.SavedValue);
-        newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive((bool)Main.instance.ToggleHealthBar.SavedValue);
+        newPlayer.Controller.PlayerNameTag.gameObject.SetActive(Main.instance.ToggleNameplate.Value);
+        newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(Main.instance.ToggleHealthBar.Value);
 
         clone.VRRig = Overall;
         clone.LeftHand = LHand;
@@ -689,8 +689,6 @@ public class ReplayPlayback
 
             foreach (var collider in playbackStructure.GetComponentsInChildren<Collider>())
                 collider.enabled = false;
-            
-            var velocity = (sb.position - sa.position) / (b.Time - a.Time);
 
             // ------ State Event Checks ------
 
@@ -1029,7 +1027,7 @@ public class ReplayPlayback
             }
 
             var rockCam = playbackPlayer.Controller.PlayerLIV?.LckTablet;
-            if (rockCam != null && (bool)Main.instance.ToggleRockCam.SavedValue)
+            if (rockCam != null && Main.instance.ToggleRockCam.Value)
             {
                 if (state.rockCamActive != pb.rockCamActive)
                 {
@@ -1075,11 +1073,11 @@ public class ReplayPlayback
             }
             
             playbackPlayer.Controller.PlayerNameTag.gameObject.SetActive(
-                (bool)Main.instance.ToggleNameplate.SavedValue
+                Main.instance.ToggleNameplate.Value
             );
             
             playbackPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(
-                (bool)Main.instance.ToggleHealthBar.SavedValue
+                Main.instance.ToggleHealthBar.Value
             );
             
             if (state.active != pb.active)
@@ -1224,7 +1222,7 @@ public class ReplayPlayback
 
         if (ReplayCache.FXToVFXName.TryGetValue(fx.fxType, out var poolName))
         {
-            if (fx.fxType is FXOneShotType.Break or FXOneShotType.DustImpact or FXOneShotType.Grounded or FXOneShotType.Spawn or FXOneShotType.Ungrounded && !(bool)Main.instance.ToggleDust.SavedValue)
+            if (fx.fxType is FXOneShotType.Break or FXOneShotType.DustImpact or FXOneShotType.Grounded or FXOneShotType.Spawn or FXOneShotType.Ungrounded && !Main.instance.ToggleDust.Value)
                 return null;
             
             var effect = GameObject.Instantiate(PoolManager.instance.GetPool(poolName).poolItem);
@@ -1248,7 +1246,7 @@ public class ReplayPlayback
             }
         }
 
-        if (fx.fxType == FXOneShotType.Hitmarker && (bool)Main.instance.ToggleHitmarkers.SavedValue)
+        if (fx.fxType == FXOneShotType.Hitmarker && Main.instance.ToggleHitmarkers.Value)
         {
             var pool = PoolManager.instance.GetPool("PlayerHitmarker");
             var effect = GameObject.Instantiate(pool.poolItem.gameObject, VFXParent.transform);
@@ -1297,7 +1295,7 @@ public class ReplayPlayback
         {
             AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_BackwardLocked"], Main.instance.head.position);
 
-            if ((bool)Main.instance.EnableHaptics.SavedValue)
+            if (Main.instance.EnableHaptics.Value)
                 Main.LocalPlayer.Controller.PlayerHaptics.PlayControllerHaptics(1f, 0.05f, 1f, 0.05f);
 
             if (setSpeed)
@@ -1309,7 +1307,7 @@ public class ReplayPlayback
 
             AudioManager.instance.Play(ReplayCache.SFX["Call_DressingRoom_PartPanelTick_ForwardUnlocked"], Main.instance.head.position);
 
-            if ((bool)Main.instance.EnableHaptics.SavedValue)
+            if (Main.instance.EnableHaptics.Value)
                 Main.LocalPlayer.Controller.PlayerHaptics.PlayControllerHaptics(1f, 0.05f, 1f, 0.05f);
 
             if (setSpeed) 
@@ -1571,7 +1569,7 @@ public class ReplayPlayback
 
             pa.animator.SetInteger(pa.movementStateAnimatorHash, state);
             
-            if ((bool)Main.instance.CloseHandsOnPose.SavedValue)
+            if (Main.instance.CloseHandsOnPose.Value)
                 pa.animator.SetBool(PoseFistsActiveHash, ps.IsDoingAnyPose());
         }
     }

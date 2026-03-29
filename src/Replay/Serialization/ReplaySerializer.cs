@@ -573,7 +573,7 @@ public class ReplaySerializer
             
             foreach (var ext in ReplayAPI.Extensions)
             {
-                if (!(bool)ext.Enabled.SavedValue)
+                if (!ext.Enabled.Value)
                     continue;
 
                 var writer = new ReplayAPI.FrameExtensionWriter(
@@ -756,7 +756,7 @@ public class ReplaySerializer
                         long end = br.BaseStream.Position + len;
 
                         var ext = ReplayAPI.Extensions.FirstOrDefault(ex => ex.FrameExtensionId == extensionId);
-                        if (ext != null && (bool)ext.Enabled.SavedValue)
+                        if (ext != null && ext.Enabled.Value)
                             ext.OnReadFrame(br, frame, subIndex);
 
                         br.BaseStream.Position = end;

@@ -2,7 +2,6 @@ using System.IO;
 using MelonLoader;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
-using RumbleModUI;
 using UnityEngine;
 
 namespace ReplayMod.docs.Extensions;
@@ -21,7 +20,7 @@ public class ExampleMod : MelonMod
 
     private ReplayExtension mod;
 
-    private static ModSetting<bool> recordBell;
+    private static MelonPreferences_Entry<bool> recordBell;
 
     public string currentScene = "Loader";
 
@@ -32,8 +31,7 @@ public class ExampleMod : MelonMod
         mod = ReplayAPI.RegisterExtension(new BellExtension());
 
         // Extensions can have their own settings.
-        recordBell = ReplayAPI.ReplayMod.AddToList("Record Bell", true, 0, "Toggles whether the bell is recorded.", new Tags());
-        mod.Settings.AddSetting(recordBell);
+        recordBell = mod.Settings.CreateEntry("Record_Bell", true, "Record Bell", "Toggles whether the bell is recorded.");
 
         ReplayAPI.onReplayEnded += _ => {
             lastState = null;
@@ -62,7 +60,7 @@ public class ExampleMod : MelonMod
             if (instance.currentScene != "Park")
                 return;
 
-            if (!(bool)recordBell.SavedValue)
+            if (!recordBell.Value)
                 return;
 
             var bell = new GameObject("Bell"); /*GameObjects.Park.INTERACTABLES.Bell.GetGameObject();*/ // RIP Bell

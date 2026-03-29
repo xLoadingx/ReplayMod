@@ -34,14 +34,15 @@ public class Patches
     public static Dictionary<string, float> lastLargeDamageTime = new();
     public static HashSet<VisualEffect> frameSeenEffects = new();
     
-    public static int GetPlayerIndex(Player player) => Main.Recording.RecordedPlayers.IndexOf(player);
-    
     // ----- Pools -----
     [HarmonyPatch(typeof(PoolManager), nameof(PoolManager.Instantiate))]
     public class Patch_PoolManager_Instantiate
     {
         static void Postfix(GameObject __result)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
     
@@ -56,7 +57,7 @@ public class Patches
     {
         static void Postfix(Vector3 position, AudioCall call)
         {
-            if (call == null)
+            if (call == null || !Main.instance.UIInitialized)
                 return;
     
             FXOneShotType? type = ReplayCache.AudioCallToFX.TryGetValue(call.name, out var foundType) ? foundType : null;
@@ -94,7 +95,7 @@ public class Patches
     {
         static void Postfix(PooledMonoBehaviour __result, Vector3 position, Quaternion rotation)
         {
-            if (Main.currentScene == "Loader")
+            if (Main.currentScene == "Loader" || !Main.instance.UIInitialized)
                 return;
             
             var vfx = __result.GetComponent<VisualEffect>(); 
@@ -165,6 +166,9 @@ public class Patches
     {
         static void Prefix(VFXFloatSwitch __instance, VisualEffect effect, int structureID)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
             
@@ -193,10 +197,13 @@ public class Patches
     {
         static void Postfix(PlayerHealth __instance, short amount)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
             
-            if (!(bool)Main.instance.EnableLargeDamageMarker.SavedValue)
+            if (!Main.instance.EnableLargeDamageMarker.Value)
                 return;
             
             string playerId = __instance.parentController.assignedPlayer.Data.GeneralData.PlayFabMasterId;
@@ -210,7 +217,7 @@ public class Patches
             float time = Main.Recording.lastSampleTime;
             queue.Enqueue((time, amount));
 
-            while (queue.Count > 0 && queue.Peek().time < time - (float)Main.instance.DamageWindow.SavedValue)
+            while (queue.Count > 0 && queue.Peek().time < time - Main.instance.DamageWindow.Value)
                 queue.Dequeue();
 
             int sum = 0;
@@ -220,7 +227,7 @@ public class Patches
             float oldestTimeInQueue = queue.Count > 0 ? queue.Peek().time : -999f;
             float lastProcessed = lastLargeDamageTime.GetValueOrDefault(playerId, -999f);
 
-            if (sum >= (int)Main.instance.DamageThreshold.SavedValue && oldestTimeInQueue > lastProcessed)
+            if (sum >= Main.instance.DamageThreshold.Value && oldestTimeInQueue > lastProcessed)
             {
                 lastLargeDamageTime[playerId] = time;
                 queue.Clear();
@@ -237,6 +244,9 @@ public class Patches
     {
         static void Postfix(PlayerVisuals __instance)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
 
@@ -263,6 +273,9 @@ public class Patches
     {
         static void Prefix(PlayerController __instance)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
 
@@ -281,6 +294,9 @@ public class Patches
     {
         static void Postfix(Stack stack, PlayerStackProcessor __instance)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
     
@@ -296,6 +312,9 @@ public class Patches
     {
         static void Prefix()
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             Main.Playback.StopReplay();
             
             if (Main.Recording.isRecording) Main.Recording.StopRecording();
@@ -322,6 +341,9 @@ public class Patches
     {
         static void Prefix(PlayerHandPresence __instance, InputManager.Hand hand, ref PlayerHandPresence.HandPresenceInput input)
         {
+            if (!Main.instance.UIInitialized)
+                return;
+            
             if (__instance.parentController == null) return;
             
             if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
@@ -354,6 +376,9 @@ public class Patches
     {
         static bool Prefix(PlayerHealth __instance)
         {
+            if (!Main.instance.UIInitialized)
+                return true;
+            
             if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController))
                 return true;
 

@@ -36,7 +36,7 @@ public static class ReplayPlaybackControls
     public static void Update()
     {
         var head = Main.instance.head;
-        if (head == null || playbackControls == null || !(bool)Main.instance.PlaybackControlsFollow.SavedValue)
+        if (head == null || playbackControls == null || !Main.instance.PlaybackControlsFollow.Value)
             return;
 
         float armSpan = Main.LocalPlayer.Data.PlayerMeasurement.ArmSpan;
@@ -136,7 +136,7 @@ public class DestroyOnPunch : MonoBehaviour
         {
             onDestroy?.Invoke();
             
-            if ((bool)Main.instance.EnableHaptics.SavedValue)
+            if (Main.instance.EnableHaptics.Value)
                 Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(
                     isLeftHand ? 1f : 0f, isLeftHand ? 0.2f : 0f, !isLeftHand ? 1f : 0f, !isLeftHand ? 0.2f : 0f
                 );

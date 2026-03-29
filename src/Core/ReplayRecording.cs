@@ -67,7 +67,7 @@ public class ReplayRecording
     {
         if ((!isRecording && !isBuffering) || SceneManager.instance.IsLoadingScene) return;
 
-        float sampleRate = 1f / (int)Main.instance.TargetRecordingFPS.SavedValue;
+        float sampleRate = 1f / Main.instance.TargetRecordingFPS.Value;
 
         if (Time.time - lastSampleTime >= sampleRate)
         {
@@ -101,7 +101,7 @@ public class ReplayRecording
                 ReplayAPI.OnRecordFrameInternal(cloned, true);
                 replayBuffer.Enqueue(cloned);
 
-                float cutoffTime = frame.Time - (int)Main.instance.ReplayBufferDuration.SavedValue;
+                float cutoffTime = frame.Time - Main.instance.ReplayBufferDuration.Value;
                 while (replayBuffer.Count > 0 && replayBuffer.Peek().Time < cutoffTime)
                     replayBuffer.Dequeue();
             }
@@ -225,7 +225,7 @@ public class ReplayRecording
             if (vigor != null && vigor.isPlaying)
                 active |= PlayerShiftstoneVFX.Vigor;
 
-            bool recordFingers = (bool)Main.instance.HandFingerRecording.SavedValue;
+            bool recordFingers = Main.instance.HandFingerRecording.Value;
             var playerHandPresence = p.Controller.GetSubsystem<PlayerHandPresence>();
 
             var rockCam = p.Controller.GetSubsystem<PlayerLIV>()?.LckTablet.transform.gameObject;
@@ -403,7 +403,7 @@ public class ReplayRecording
                 AvgPing = pingCount > 0 ? pingSum / pingCount : -1,
                 MinPing = pingMin,
                 MaxPing = pingMax,
-                TargetFPS = (int)Main.instance.TargetRecordingFPS.SavedValue,
+                TargetFPS = Main.instance.TargetRecordingFPS.Value,
                 Structures = StructureInfos.ToArray(),
                 SceneProps = ScenePropInfos.ToArray(),
                 Guid = Guid.NewGuid().ToString()
@@ -460,7 +460,7 @@ public class ReplayRecording
                     Main.LocalPlayer.Controller.GetSubsystem<PlayerVR>().transform.position);
                 Main.instance.LoggerInstance.Msg($"{logPrefix} saved to disk: '{path}'");
                 
-                if ((bool)Main.instance.EnableHaptics.SavedValue)
+                if (Main.instance.EnableHaptics.Value)
                     Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
                 
                 if (recordingIcon != null)
@@ -642,7 +642,7 @@ public class ReplayRecording
         replayBuffer.Clear();
         bufferMarkers.Clear();
         
-        Main.DebugLog($"[Buffer] Started | Duration: {Main.instance.ReplayBufferDuration.SavedValue}s");
+        Main.DebugLog($"[Buffer] Started | Duration: {Main.instance.ReplayBufferDuration.Value}s");
     }
     
     public void SaveReplayBuffer()
@@ -677,7 +677,7 @@ public class ReplayRecording
         if (recordingIcon != null)
             recordingIcon.color = Color.red;
         
-        if ((bool)Main.instance.EnableHaptics.SavedValue)
+        if (Main.instance.EnableHaptics.Value)
             Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
 
         Main.DebugLog($"[Recording] Started | Scene: {recordingSceneName} | Players: {RecordedPlayers.Count} | Structures: {Structures.Count}");
