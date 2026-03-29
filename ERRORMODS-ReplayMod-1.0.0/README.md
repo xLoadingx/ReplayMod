@@ -17,7 +17,7 @@ maneuver through the replays correctly.
 You can start recording in two ways:
 - **Automatic**: Enable `Auto Record Matches` or `Auto Record Parks` in the mod settings.
 - **Manual**: Hold the custom hand gesture for 3 seconds. You'll hear a clicking sound along with a corresponding VFX when a recording starts.  
-  ![HandGesture](Images/CustomGesture.png)
+  ![HandGesture](https://github.com/xLoadingx/ReplayMod/blob/main/Images/CustomGesture.png?raw=true)
 
 Doing the gesture again will stop and save the recording.
 
@@ -50,7 +50,7 @@ Holding the Crystallize button on the side of the Replay Table will turn the cur
 
 ### Playback Controls
 While a replay is playing, you can toggle the playback panel by doing the following gesture:  
-![Playback Controls Gesture](Images/PlaybackControlsGesture.png)  
+![Playback Controls Gesture](https://github.com/xLoadingx/ReplayMod/blob/main/Images/PlaybackControlsGesture.png?raw=true)  
 This opens a control menu with:
 - A timeline that shows current time and total duration
 - You can scrub through the replay by dragging your finger along the timeline
@@ -63,7 +63,7 @@ This opens a control menu with:
 This panel can also be punched to toggle it off.
 
 Alternatively, you can also do this gesture to toggle pause:  
-![Pause Gesture](Images/PauseGesture.png)
+![Pause Gesture](https://github.com/xLoadingx/ReplayMod/blob/main/Images/PauseGesture.png?raw=true)
 
 ---
 
@@ -116,14 +116,14 @@ At the bottom of the panel, two buttons let you switch between pages of entries.
 ---
 
 ## Developers
-The replay format is documented [here](docs/ReplayFormat)
-The documentation for the API is found [here](docs/API/README.md)
+The replay format is documented [here](wiki/4920-replay-format-documentation)
+The documentation for the API is found [here](wiki/4918-api-documentation)
+An example mod for using the API is written [here](wiki/4919-api-example-mod)
 
 ### Tools:
-- [Binary format spec](docs/ReplayFormat/README.md): `docs/ReplayFormat/README.md`
-- [ImHex pattern](docs/ReplayFormat/ReplayFile.hexpat): `docs/ReplayFormat/ReplayFile.hexpat`
-- [Python Reader](BlenderPlugin/replay_mod_importer.py): `BlenderPlguin/replay_mod_importer.py`
-- [Example Extension Mod](docs/API/ExampleMod.cs): `docs/API/ExampleMod.cs`
+- [Binary format spec](wiki/4920-replay-format-documentation/)
+- [ImHex pattern](https://github.com/xLoadingx/ReplayMod/blob/main/docs/ReplayFormat/ReplayFile.hexpat)
+- [Python Reader](https://github.com/xLoadingx/ReplayMod/blob/main/BlenderPlugin/replay_mod_importer.py)
 
 ---
 
