@@ -5,6 +5,7 @@ using System.Linq;
 using HarmonyLib;
 using Il2Cpp;
 using Il2CppPhoton.Pun;
+using Il2CppPhoton.Voice;
 using Il2CppRUMBLE.Audio;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Input;
@@ -385,4 +386,15 @@ public class Patches
             return false;
         }
     }
-}
+    [HarmonyPatch(typeof(VoiceClient), nameof(VoiceClient.createLocalVoice))]
+    public static class Patch_VoiceClient_createLocalVoice
+    {
+        static void Postfix(Il2CppPhoton.Voice.VoiceClient __instance, Il2CppPhoton.Voice.LocalVoice __result, int __0, Il2CppSystem.Func<byte, int, Il2CppPhoton.Voice.LocalVoice> __1)
+        {
+            if (Main.Recording.isRecording){
+                __result.DebugEchoMode = true;
+            }
+        }
+    }
+  }
+
