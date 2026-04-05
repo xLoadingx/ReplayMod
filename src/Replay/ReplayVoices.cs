@@ -8,6 +8,7 @@ using Il2CppPhoton.Voice.PUN;
 using Il2CppPhoton.Voice.Unity;
 using Il2CppRUMBLE.Managers;
 using Concentus;
+using Concentus.Enums;
 using Concentus.Oggfile;
 using MelonLoader.Utils;
 using ReplayMod.Core;
@@ -49,12 +50,35 @@ public static class ReplayVoices
         }
     }
 
+    public static void StopRecording()
+    {
+        isRecording = false;
+
+        foreach (var key in writers.Keys.ToList())
+            stopWriter(key);
+
+        VoiceTrackInfos.Clear();
+        Directory.Delete(TempVoiceDir);
+    }
+
+
+    private static void stopWriter(int voiceId)
+    {
+        if (!writers.Remove(voiceId, out var writer))
+            return;
+
+        writer.Dispose();
+
+        if (!writer.HasFrames && File.Exists(writer.Path))
+            File.Delete(writer.Path);
+    }
 
     public static void OnRemoteVoiceLinkAdded(RemoteVoiceLink link)
     {
         int playerId = link.PlayerId;
         int voiceId = link.VoiceId;
 
+        float startTime = Time.time;
         Main.DebugLog($"VoiceAdded actor={playerId} voice={voiceId}");
 
         string name = PlayerManager.instance.AllPlayers.ToArray()
@@ -78,7 +102,8 @@ public static class ReplayVoices
                     voiceId,
                     link.VoiceInfo.SamplingRate,
                     link.VoiceInfo.Channels,
-                    path
+                    path,
+                    initalTimeStamp: startTime // file doesnt actually start until the person starts speaking for the first time
                 );
 
                 writers.Add(voiceId, writer);
@@ -103,31 +128,8 @@ public static class ReplayVoices
         link.RemoteVoiceRemoved += (Il2CppSystem.Action)(() =>
         {
             Main.DebugLog($"VoiceRemoved actor={playerId} voice={voiceId}");
-            StopWriter(voiceId);
+            stopWriter(voiceId);
         });
-    }
-
-    public static void StopRecording()
-    {
-        isRecording = false;
-
-        foreach (var key in writers.Keys.ToList())
-            StopWriter(key);
-
-        VoiceTrackInfos.Clear();
-        Directory.Delete(TempVoiceDir);
-    }
-
-
-    private static void StopWriter(int voiceId)
-    {
-        if (!writers.Remove(voiceId, out var writer))
-            return;
-
-        writer.Dispose();
-
-        if (!writer.HasFrames && File.Exists(writer.Path))
-            File.Delete(writer.Path);
     }
 
     public class VoiceStreamWriter : IDisposable
@@ -137,38 +139,46 @@ public static class ReplayVoices
         public bool HasFrames { get; private set; }
         public float LastWriteTimestamp { get; private set; }
 
-        public int SampleRate;
-        public int Channels;
+        public int SampleRate { get; private set; }
+        public int Channels { get; private set; }
 
-        private readonly FileStream fileStream;
-        private readonly IOpusEncoder encoder;
-        private readonly OpusOggWriteStream wav;
+
+        private readonly FileStream _fileStream;
+        private readonly IOpusEncoder _encoder;
+        private readonly OpusOggWriteStream _wav;
 
         public VoiceStreamWriter(
             int voiceId,
             int sampleRate,
             int channels,
             string path,
-            int bitrate = 30000
+            int bitrate = 30000,
+            int complexity = 8,
+            float initalTimeStamp = 0
         )
         {
+            LastWriteTimestamp = initalTimeStamp;
+            if (initalTimeStamp is 0)
+                LastWriteTimestamp = Time.time;
+
             VoiceId = voiceId;
             Path = path;
-
-            fileStream = File.Create(path);
-
-            VoiceId = voiceId;
             SampleRate = sampleRate;
             Channels = channels;
 
-            encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, Concentus.Enums.OpusApplication.OPUS_APPLICATION_VOIP);
-            encoder.Bitrate = bitrate;
-            encoder.UseVBR = true;
+            _fileStream = File.Create(path);
+
+
+            _encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, Concentus.Enums.OpusApplication.OPUS_APPLICATION_VOIP);
+            _encoder.Bitrate = bitrate;
+            _encoder.Complexity = complexity;
+            _encoder.SignalType = OpusSignal.OPUS_SIGNAL_VOICE;
 
             OpusTags tags = new();
-            tags.Comment = "Rumble ReplayMod captured photon voice stream";
-            wav = new(encoder, fileStream, tags);
-            LastWriteTimestamp = Time.time;
+            tags.Fields.Add("Type", "Rumble ReplayMod Captured Voice");
+            tags.Fields.Add("Origin", "https://github.com/xLoadingx/ReplayMod");
+            tags.Fields.Add("Encoder", "https://github.com/lostromb/concentus");
+            _wav = new(_encoder, _fileStream, tags);
         }
 
         public void Write(float[] samples)
@@ -178,19 +188,19 @@ public static class ReplayVoices
 
             HasFrames = true;
             int silenceSamplesAmount = (int)((Time.time - LastWriteTimestamp) * SampleRate);
-            if (silenceSamplesAmount > SampleRate / 8)
+            if (silenceSamplesAmount >= SampleRate / 8) // kinda arbitary silence amount
             {
-                wav.WriteSamples(new float[silenceSamplesAmount], 0, silenceSamplesAmount);
-                Main.DebugLog($"Silenced:{silenceSamplesAmount}");
+                Main.DebugLog($"Voice {VoiceId} silent for {Time.time - LastWriteTimestamp} seconds or {silenceSamplesAmount} samples");
+                _wav.WriteSamples(new float[silenceSamplesAmount], 0, silenceSamplesAmount);
             }
+            _wav.WriteSamples(samples, 0, samples.Length);
             LastWriteTimestamp = Time.time;
-            wav.WriteSamples(samples, 0, samples.Length);
         }
 
         public void Dispose()
         {
-            wav.Finish();
-            fileStream?.Dispose();
+            _wav.Finish();
+            _fileStream?.Dispose();
         }
     }
 }
