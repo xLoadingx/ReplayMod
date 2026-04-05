@@ -658,6 +658,7 @@ public class ReplayRecording
         Main.DebugLog($"[Recording] Stopping | Frames: {Frames.Count} | Markers: {recordingMarkers.Count}");
         
         isRecording = false;
+        ReplayVoices.StopRecording();
         SaveReplay(Frames.ToArray(), recordingMarkers, "Recording", onSave: (info, path) => ReplayAPI.ReplaySavedInternal(info, false, path));
 
         Reset();
@@ -669,6 +670,7 @@ public class ReplayRecording
     {
         isRecording = true;
         
+        ReplayVoices.StartRecording();
         SetupRecordingData();
         Frames.Clear();
         Events.Clear();
