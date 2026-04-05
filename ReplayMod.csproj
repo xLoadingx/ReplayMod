@@ -23,6 +23,8 @@
     </ItemGroup>
   
     <ItemGroup>
+      <PackageReference Include="Concentus" Version="2.2.2" />
+      <PackageReference Include="Concentus.Oggfile" Version="1.0.7" />
       <PackageReference Include="LavaGang.MelonLoader" Version="0.7.1" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     </ItemGroup>

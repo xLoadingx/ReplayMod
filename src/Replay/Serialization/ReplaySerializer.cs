@@ -53,7 +53,7 @@ public class ReplaySerializer
 
         public string Guid;
     }
-    
+
     // ----- Helpers -----
 
     static bool PosChanged(Vector3 a, Vector3 b)
@@ -72,7 +72,7 @@ public class ReplaySerializer
     }
 
     // ----- Field-based diffs -----
-    
+
     static bool WriteIf(bool condition, Action write)
     {
         if (!condition)
@@ -81,7 +81,7 @@ public class ReplaySerializer
         write();
         return true;
     }
-    
+
     static int WriteStructureDiff(BinaryWriter w, StructureState prev, StructureState curr)
     {
         long start = w.BaseStream.Position;
@@ -91,7 +91,7 @@ public class ReplaySerializer
             () => w.Write(StructureField.position, curr.position)
         );
 
-         WriteIf(
+        WriteIf(
             RotChanged(prev.rotation, curr.rotation),
             () => w.Write(StructureField.rotation, curr.rotation)
         );
@@ -105,7 +105,7 @@ public class ReplaySerializer
             prev.isLeftHeld != curr.isLeftHeld,
             () => w.Write(StructureField.isLeftHeld, curr.isLeftHeld)
         );
-        
+
         WriteIf(
             prev.isRightHeld != curr.isRightHeld,
             () => w.Write(StructureField.isRightHeld, curr.isRightHeld)
@@ -120,7 +120,7 @@ public class ReplaySerializer
             prev.currentState != curr.currentState,
             () => w.Write(StructureField.currentState, (byte)curr.currentState)
         );
-        
+
         WriteIf(
             prev.isTargetDisk != curr.isTargetDisk,
             () => w.Write(StructureField.isTargetDisk, curr.isTargetDisk)
@@ -128,7 +128,7 @@ public class ReplaySerializer
 
         return (int)(w.BaseStream.Position - start);
     }
-    
+
     static int WritePlayerDiff(BinaryWriter w, PlayerState prev, PlayerState curr)
     {
         long start = w.BaseStream.Position;
@@ -197,7 +197,7 @@ public class ReplaySerializer
             prev.leftShiftstone != curr.leftShiftstone,
             () => w.Write(PlayerField.leftShiftstone, (byte)curr.leftShiftstone)
         );
-        
+
         WriteIf(
             prev.rightShiftstone != curr.rightShiftstone,
             () => w.Write(PlayerField.rightShiftstone, (byte)curr.rightShiftstone)
@@ -207,27 +207,27 @@ public class ReplaySerializer
             FloatChanged(prev.lgripInput, curr.lgripInput),
             () => w.Write(PlayerField.lgripInput, curr.lgripInput)
         );
-        
+
         WriteIf(
             FloatChanged(prev.lthumbInput, curr.lthumbInput),
             () => w.Write(PlayerField.lthumbInput, curr.lthumbInput)
         );
-        
+
         WriteIf(
             FloatChanged(prev.lindexInput, curr.lindexInput),
             () => w.Write(PlayerField.lindexInput, curr.lindexInput)
         );
-        
+
         WriteIf(
             FloatChanged(prev.rgripInput, curr.rgripInput),
             () => w.Write(PlayerField.rgripInput, curr.rgripInput)
         );
-        
+
         WriteIf(
             FloatChanged(prev.rthumbInput, curr.rthumbInput),
             () => w.Write(PlayerField.rthumbInput, curr.rthumbInput)
         );
-        
+
         WriteIf(
             FloatChanged(prev.rindexInput, curr.rindexInput),
             () => w.Write(PlayerField.rindexInput, curr.rindexInput)
@@ -247,12 +247,12 @@ public class ReplaySerializer
             RotChanged(prev.rockCamRot, curr.rockCamRot),
             () => w.Write(PlayerField.rockCamRot, curr.rockCamRot)
         );
-        
+
         WriteIf(
             FloatChanged(prev.ArmSpan, curr.ArmSpan),
             () => w.Write(PlayerField.armSpan, curr.ArmSpan)
         );
-        
+
         WriteIf(
             FloatChanged(prev.Length, curr.Length),
             () => w.Write(PlayerField.length, curr.Length)
@@ -268,8 +268,8 @@ public class ReplaySerializer
 
     static int WritePedestalDiff(BinaryWriter w, PedestalState prev, PedestalState curr)
     {
-        long start = w.BaseStream.Position; 
-            
+        long start = w.BaseStream.Position;
+
         WriteIf(
             PosChanged(prev.position, curr.position),
             () => w.Write(PedestalField.position, curr.position)
@@ -296,14 +296,14 @@ public class ReplaySerializer
             RotChanged(prev.rotation, curr.rotation),
             () => w.Write(ScenePropField.rotation, curr.rotation)
         );
-        
+
         return (int)(w.BaseStream.Position - start);
     }
 
     static int WriteEvent(BinaryWriter w, EventChunk e)
     {
         long start = w.BaseStream.Position;
-        
+
         WriteIf(
             true,
             () => w.Write(EventField.type, (byte)e.type)
@@ -346,21 +346,21 @@ public class ReplaySerializer
 
         return (int)(w.BaseStream.Position - start);
     }
-    
+
     // ----- Serialization -----
-    
+
     public static byte[] SerializeReplayFile(ReplayInfo replay)
     {
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        
+
         bw.Write(Encoding.ASCII.GetBytes("RPLY"));
-        
+
         StructureState[] lastStructureFrame = null;
         PlayerState[] lastPlayerFrame = null;
         PedestalState[] lastPedestalFrame = null;
         ScenePropState[] lastScenePropFrame = null;
-        
+
         int total = replay.Frames.Length;
         int lastLoggedPercent = -1;
 
@@ -464,7 +464,7 @@ public class ReplaySerializer
             }
 
             // Pedestals
-            
+
             for (int j = 0; j < pedestalCount; j++)
             {
                 if (j >= f.Pedestals.Length || j >= lastPedestalFrame.Length)
@@ -500,7 +500,7 @@ public class ReplaySerializer
 
                 lastPedestalFrame[j] = curr;
             }
-            
+
             // Scene Props
 
             for (int j = 0; j < scenePropCount; j++)
@@ -510,12 +510,12 @@ public class ReplaySerializer
 
                 var curr = f.SceneProps[j];
                 var prev = lastScenePropFrame[j];
-                
+
                 long headerPos = entriesBw.BaseStream.Position;
-                
+
                 entriesBw.Write((byte)ChunkType.ScenePropState);
                 entriesBw.Write(j);
-                
+
                 long sizePos = entriesBw.BaseStream.Position;
                 entriesBw.Write(0);
 
@@ -524,21 +524,21 @@ public class ReplaySerializer
                 if (written > 0)
                 {
                     long end = entriesBw.BaseStream.Position;
-                    
+
                     entriesBw.BaseStream.Position = sizePos;
                     entriesBw.Write(written);
                     entriesBw.BaseStream.Position = end;
-                    
+
                     entryCount++;
                 }
                 else
                 {
                     entriesBw.BaseStream.Position = headerPos;
                 }
-                
+
                 lastScenePropFrame[j] = curr;
             }
-            
+
             // Events
 
             for (int j = 0; j < f.Events.Length; j++)
@@ -570,7 +570,7 @@ public class ReplaySerializer
             }
 
             // Extensions
-            
+
             foreach (var ext in ReplayAPI.Extensions)
             {
                 if (!ext.Enabled.Value)
@@ -586,7 +586,7 @@ public class ReplaySerializer
             }
 
             // ------------
-            
+
             frameBw.Write(entryCount);
             frameBw.Write(entriesMs.ToArray());
 
@@ -594,26 +594,26 @@ public class ReplaySerializer
 
             bw.Write(frameData.Length);
             bw.Write(frameData);
-            
+
             int percent = (int)((i + 1) * 100.0 / total);
 
             if (percent % 10 == 0 && total > 1000 && percent != lastLoggedPercent)
             {
                 lastLoggedPercent = percent;
-                Main.instance.LoggerInstance.Msg($"Serializing replay... {percent}%"); 
+                Main.instance.LoggerInstance.Msg($"Serializing replay... {percent}%");
             }
         }
-        
+
         return ms.ToArray();
     }
 
     // ----- Deserialization -----
-    
+
     public static ReplayInfo LoadReplay(string path)
     {
         using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
         using var zip = new ZipArchive(fs, ZipArchiveMode.Read);
-        
+
         var manifestEntry = zip.GetEntry("manifest.json");
         if (manifestEntry == null)
         {
@@ -623,9 +623,9 @@ public class ReplaySerializer
 
         using var reader = new StreamReader(manifestEntry.Open());
         string manifestJson = reader.ReadToEnd();
-        
+
         var header = JsonConvert.DeserializeObject<ReplayHeader>(manifestJson);
-        
+
         var replayEntry = zip.GetEntry("replay");
         if (replayEntry == null)
         {
@@ -637,12 +637,12 @@ public class ReplaySerializer
         using var stream = replayEntry.Open();
         stream.CopyTo(ms);
         byte[] compressedReplay = ms.ToArray();
-        
+
         byte[] replayData = ReplayCodec.Decompress(compressedReplay);
-        
+
         using var memStream = new MemoryStream(replayData);
         using var br = new BinaryReader(memStream);
-        
+
         byte[] magic = br.ReadBytes(4);
         string magicStr = Encoding.ASCII.GetString(magic);
 
@@ -651,7 +651,7 @@ public class ReplaySerializer
             Main.instance.LoggerInstance.Error($"Invalid replay file (magic={magicStr}");
             return new ReplayInfo();
         }
-        
+
         var replayInfo = new ReplayInfo();
         replayInfo.Header = header;
         replayInfo.Frames = ReadFrames(
@@ -666,13 +666,13 @@ public class ReplaySerializer
 
         return replayInfo;
     }
-    
+
     private static Frame[] ReadFrames(
-        BinaryReader br, 
-        ReplayInfo info, 
-        int frameCount, 
-        int structureCount, 
-        int playerCount, 
+        BinaryReader br,
+        ReplayInfo info,
+        int frameCount,
+        int structureCount,
+        int playerCount,
         int pedestalCount,
         int scenePropCount
     )
@@ -683,22 +683,22 @@ public class ReplaySerializer
         PlayerState[] lastPlayers = Utilities.NewArray<PlayerState>(playerCount);
         PedestalState[] lastPedestals = Utilities.NewArray<PedestalState>(pedestalCount);
         ScenePropState[] lastSceneProps = Utilities.NewArray<ScenePropState>(scenePropCount);
-        
+
         for (int f = 0; f < frameCount; f++)
         {
             int frameSize = br.ReadInt32();
-            
+
             long frameEnd = br.BaseStream.Position + frameSize;
-            
+
             Frame frame = new Frame();
             frame.Time = br.ReadSingle();
-            
+
             frame.Structures = Utilities.NewArray(structureCount, lastStructures);
             frame.Players = Utilities.NewArray(playerCount, lastPlayers);
             frame.Pedestals = Utilities.NewArray(pedestalCount, lastPedestals);
             frame.SceneProps = Utilities.NewArray(scenePropCount, lastSceneProps);
             var events = new List<EventChunk>();
-            
+
             int entryCount = br.ReadInt32();
 
             for (int e = 0; e < entryCount; e++)
@@ -773,32 +773,32 @@ public class ReplaySerializer
             }
 
             frame.Events = events.ToArray();
-            
+
             br.BaseStream.Position = frameEnd;
 
             frames[f] = frame;
         }
-        
+
         return frames;
     }
-    
+
     // ----- Chunk Reading -----
-    
+
     /// <summary>
     /// Reads a tagged chunk from the stream and reconstructs a state object using the provided field handler.
     /// </summary>
-    /// <param name="br">The <see cref="BinaryReader"/> positioned at the start of the chunk.  
+    /// <param name="br">The <see cref="BinaryReader"/> positioned at the start of the chunk.
     /// The method will read the chunk length and process only that region.
     /// </param>
     /// <param name="ctor">
-    /// A function used to create the initial state object for this chunk.  
+    /// A function used to create the initial state object for this chunk.
     /// This allows callers to supply a fresh state or clone from a previous frame
     /// to support delta-style updates
     /// </param>
     /// <param name="readField">
-    /// Callback invoked for each recognized field within the chunk.  
+    /// Callback invoked for each recognized field within the chunk.
     /// The callback receives the current state object, the field identifier, and
-    /// the <see cref="BinaryReader"/> positioned at the start of that field's data  
+    /// the <see cref="BinaryReader"/> positioned at the start of that field's data
     /// </param>
     /// <typeparam name="T">
     /// The type of the state object being constructed from that chunk.
@@ -810,8 +810,8 @@ public class ReplaySerializer
     /// The fully reconstructed state object after all fields in the chunk have been processed.
     /// </returns>
     public static T ReadChunk<T, TField>(
-        BinaryReader br, 
-        Func<T> ctor, 
+        BinaryReader br,
+        Func<T> ctor,
         Action<T, TField, ushort, BinaryReader> readField
     ) where TField : Enum
     {
@@ -824,7 +824,7 @@ public class ReplaySerializer
         {
             byte raw = br.ReadByte();
             TField id = (TField)Enum.ToObject(typeof(TField), raw);
-            
+
             ushort size = br.ReadUInt16();
             long fieldEnd = br.BaseStream.Position + size;
 
@@ -835,13 +835,12 @@ public class ReplaySerializer
             }
 
             readField(state, id, size, br);
-            
+
             br.BaseStream.Position = fieldEnd;
         }
 
         return state;
     }
-    
 
     static PlayerState ReadPlayerChunk(BinaryReader br, PlayerState baseState)
     {
@@ -863,8 +862,7 @@ public class ReplaySerializer
                     case PlayerField.currentStack: p.currentStack = r.ReadInt16(); break;
                     case PlayerField.Health: p.Health = r.ReadInt16(); break;
                     case PlayerField.active: p.active = r.ReadBoolean(); break;
-                    case PlayerField.activeShiftstoneVFX: 
-                        p.activeShiftstoneVFX = (PlayerShiftstoneVFX)r.ReadByte(); break;
+                    case PlayerField.activeShiftstoneVFX: p.activeShiftstoneVFX = (PlayerShiftstoneVFX)r.ReadByte(); break;
                     case PlayerField.leftShiftstone: p.leftShiftstone = r.ReadByte(); break;
                     case PlayerField.rightShiftstone: p.rightShiftstone = r.ReadByte(); break;
                     case PlayerField.lgripInput: p.lgripInput = r.ReadSingle(); break;
@@ -900,7 +898,7 @@ public class ReplaySerializer
                 switch (id)
                 {
                     case StructureField.position: s.position = r.ReadVector3(); break;
-                    case StructureField.rotation: s.rotation = r.ReadQuaternion(); break;
+                    case StructureField.rotation: s.rotation = r.ReadQuaternion(); break; 
                     case StructureField.active: s.active = r.ReadBoolean(); break;
                     case StructureField.isFlicked: s.isFlicked = r.ReadBoolean(); break;
                     case StructureField.isLeftHeld: s.isLeftHeld = r.ReadBoolean(); break;
@@ -933,17 +931,17 @@ public class ReplaySerializer
         return ReadChunk<EventChunk, EventField>(
             br,
             () => new EventChunk(),
-            (e, id, size, r) =>
+            (e, id, size, r) => 
             {
                 switch (id)
                 {
-                    case EventField.type: e.type = (EventType)r.ReadByte(); break;
-                    case EventField.position: e.position = r.ReadVector3(); break;
-                    case EventField.rotation: e.rotation = r.ReadQuaternion(); break;
-                    case EventField.masterId: e.masterId = r.ReadString(); break;
-                    case EventField.playerIndex: e.playerIndex = r.ReadInt32(); break;
-                    case EventField.damage: e.damage = r.ReadByte(); break;
-                    case EventField.fxType: e.fxType = (FXOneShotType)r.ReadByte(); break;
+                    case EventField.type: e.type = (EventType)r.ReadByte(); break; 
+                    case EventField.position: e.position = r.ReadVector3(); break; 
+                    case EventField.rotation: e.rotation = r.ReadQuaternion(); break; 
+                    case EventField.masterId: e.masterId = r.ReadString(); break; 
+                    case EventField.playerIndex: e.playerIndex = r.ReadInt32(); break; 
+                    case EventField.damage: e.damage = r.ReadByte(); break; 
+                    case EventField.fxType: e.fxType = (FXOneShotType)r.ReadByte(); break; 
                     case EventField.structureId: e.structureId = r.ReadInt32(); break;
                 }
             }
@@ -1109,14 +1107,14 @@ public class PlayerState
     public bool active;
 
     public PlayerShiftstoneVFX activeShiftstoneVFX;
-    
+
     public int leftShiftstone;
     public int rightShiftstone;
 
     public float lgripInput;
     public float lindexInput;
     public float lthumbInput;
-    
+
     public float rgripInput;
     public float rindexInput;
     public float rthumbInput;
@@ -1169,7 +1167,7 @@ public class PlayerInfo
 {
     public byte ActorId;
     public string MasterId;
-    
+
     public string Name;
     public int BattlePoints;
     public short[] EquippedShiftStones;
@@ -1191,7 +1189,7 @@ public class PlayerInfo
         WasHost = (player.GeneralData.ActorNo == PhotonNetwork.MasterClient?.ActorNumber);
         IsLocal = player.GeneralData.PlayFabMasterId == Main.LocalPlayer.Data.GeneralData.PlayFabMasterId;
     }
-    
+
     [JsonConstructor]
     public PlayerInfo() { }
 }
@@ -1199,40 +1197,40 @@ public class PlayerInfo
 public enum PlayerField : byte {
     VRRigPos,
     VRRigRot,
-    
+
     LHandPos,
     LHandRot,
-    
+
     RHandPos,
     RHandRot,
-    
+
     HeadPos,
     HeadRot,
-    
+
     currentStack,
-    
+
     Health,
     active,
-    
+
     activeShiftstoneVFX,
     leftShiftstone,
     rightShiftstone,
-    
+
     lgripInput,
     lindexInput,
     lthumbInput,
-    
+
     rgripInput,
     rindexInput,
     rthumbInput,
-    
+
     rockCamActive,
     rockCamPos,
     rockCamRot,
-    
+
     armSpan,
     length,
-    
+
     visualData
 }
 
@@ -1251,18 +1249,18 @@ public class VoiceTrackInfo
 {
     public VoiceTrackInfo(
         int ActorId,
-        string FileName,
-        float StartTime
+        int VoiceId,
+        string FileName
     )
     {
         this.ActorId = ActorId;
+        this.VoiceId = VoiceId;
         this.FileName = FileName;
-        this.StartTime = StartTime;
     }
-    
+
     public int ActorId;
+    public int VoiceId;
     public string FileName;
-    public float StartTime;
 }
 
 public enum StackType : byte {
@@ -1286,7 +1284,7 @@ public enum StackType : byte {
 public class PedestalState
 {
     public Vector3 position;
-    
+
     public bool active;
 
     public PedestalState Clone()
@@ -1311,17 +1309,17 @@ public enum PedestalField : byte
 public class EventChunk
 {
     public EventType type;
-    
+
     // General Info
     public Vector3 position;
     public Quaternion rotation = Quaternion.identity;
     public string masterId;
     public int playerIndex;
     public int structureId = -1;
-    
+
     // Damage HitMarker
     public byte damage;
-    
+
     // FX
     public FXOneShotType fxType;
 }
@@ -1354,7 +1352,7 @@ public class Marker
     {
         this.name = name;
         this.time = time;
-        
+
         r = color.r;
         g = color.g;
         b = color.b;
@@ -1373,28 +1371,28 @@ public enum FXOneShotType : byte
     Grounded,
     GroundedSFX,
     Ungrounded,
-    
+
     DustImpact,
-    
+
     ImpactLight,
     ImpactMedium,
     ImpactHeavy,
     ImpactMassive,
-    
+
     Spawn,
     Break,
     BreakDisc,
-    
+
     RockCamSpawn,
     RockCamDespawn,
     RockCamStick,
-    
+
     Fistbump,
     FistbumpGoin,
-    
+
     Jump,
     Dash,
-    
+
     Hitmarker
 }
 
