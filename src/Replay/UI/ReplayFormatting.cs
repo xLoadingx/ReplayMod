@@ -80,8 +80,8 @@ public class ReplayFormatting
 
         var values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Host"] = $"<#FFF>{header.Players?.FirstOrDefault(p => p.WasHost)?.Name ?? "Unknown"}<#FFF>",
-            ["Client"] = $"<#FFF>{header.Players?.FirstOrDefault(p => !p.WasHost)?.Name ?? "Unknown"}<#FFF>",
+            ["Host"] = $"<#FFF>{header.Players?.FirstOrDefault(p => p is { WasHost: true })?.Name ?? "Unknown"}<#FFF>",
+            ["Client"] = $"<#FFF>{header.Players?.FirstOrDefault(p => p is { WasHost: false })?.Name ?? "Unknown"}<#FFF>",
             ["LocalPlayer"] = $"<#FFF>{header.Players?[0]?.Name ?? "Unknown"}<#FFF>",
             ["Scene"] = finalScene,
             ["Map"] = finalScene,

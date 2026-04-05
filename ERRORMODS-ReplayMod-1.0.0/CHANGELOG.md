@@ -1,3 +1,16 @@
+# 1.1.1
+- Me when I forget to add the dependencies
+
+# 1.1.0
+- Replaced ModUI with UIFramework
+- Added player pooling (improved performance and reduced lag) 
+
+
+- ACTUALLY fixed images in readme this time
+- Fixed links to thunderstore wiki in readme
+- Changed timings for UI long press buttons.
+- Made recordings end on scene async load instead of onMatchEnd for more seamless back-to-back playback.
+
 # 1.0.1
 - Moved replay tables to new "Multiplayer Maps in Singleplayer" button positions.
 - Changed 'Exit Scene' button to 'Exit Map'

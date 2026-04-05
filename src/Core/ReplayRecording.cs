@@ -418,11 +418,21 @@ public class ReplayRecording
             if (player == null)
             {
                 orderedInfos.Add(null);
+                Main.ReplayError($"Missing player in recording list.");
                 continue;
             }
             
             var id = player.Data.GeneralData.PlayFabMasterId;
-            orderedInfos.Add(PlayerInfos.GetValueOrDefault(id));
+
+            if (!PlayerInfos.TryGetValue(id, out var info))
+            {
+                Main.ReplayError($"Missing PlayerInfo for {id}, creating fallback");
+
+                info = new PlayerInfo(player);
+                PlayerInfos[id] = info;
+            }
+            
+            orderedInfos.Add(info);
         }
 
         replayInfo.Header.Players = orderedInfos.ToArray();
@@ -444,7 +454,15 @@ public class ReplayRecording
             pattern = "{Host} vs {Client} - {Scene}";
         }
 
-        replayInfo.Header.Title = ReplayFormatting.FormatReplayString(pattern, replayInfo.Header);
+        try
+        {
+            replayInfo.Header.Title = ReplayFormatting.FormatReplayString(pattern, replayInfo.Header);
+        }
+        catch (Exception e)
+        {
+            Main.ReplayError($"Failed to format replay title: {e}");
+            replayInfo.Header.Title = "Invalid Replay Title";
+        }
         
         Main.instance.LoggerInstance.Msg($"{logPrefix} finished ({frames.Length} frames, {duration:F2}s).");
         

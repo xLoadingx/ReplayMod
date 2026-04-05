@@ -47,9 +47,6 @@
   
     <ItemGroup>
       <None Remove="src\Core\replayobjects" />
-    </ItemGroup>
-  
-    <ItemGroup>
       <EmbeddedResource Include="src\Core\replayobjects" />
     </ItemGroup>
   

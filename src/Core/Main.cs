@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Il2CppPhoton.Pun;
@@ -41,7 +40,7 @@ public static class BuildInfo
 {
     public const string Name = "ReplayMod";
     public const string Author = "ERROR";
-    public const string Version = "1.0.2";
+    public const string Version = "1.1.2";
     public const string FormatVersion = "1.0.0";
 }
 
@@ -342,6 +341,8 @@ public class Main : MelonMod
         {
             if (EnableMatchEndMarker.Value)
                 Recording.AddMarker("core.matchEnded", Color.black);
+
+            Recording.StopRecording();
         };
         
         ReplayFiles.Init();

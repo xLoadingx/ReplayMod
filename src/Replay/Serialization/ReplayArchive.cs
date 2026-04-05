@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
+using Il2CppRUMBLE.Managers;
 using MelonLoader;
 using Newtonsoft.Json;
 using ReplayMod.Replay.Files;
@@ -45,8 +46,6 @@ public class ReplayArchive
         Action done
     )
     {
-        yield return null;
-        
         string manifestJson = JsonConvert.SerializeObject(
             replay.Header,
             Formatting.Indented,
@@ -67,6 +66,9 @@ public class ReplayArchive
             ReplayAPI.InvokeArchiveBuild(zip);
         }
 
+        while (SceneManager.instance.IsLoadingScene)
+            yield return null;
+        
         done?.Invoke();
     }
     

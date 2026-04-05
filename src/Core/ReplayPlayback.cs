@@ -205,8 +205,7 @@ public class ReplayPlayback
                 foreach (var col in structure.GetComponentsInChildren<Collider>())
                     col.enabled = false;
             
-                // GameObject.Destroy(PlaybackStructures[i].GetComponent<Rigidbody>());
-                PlaybackStructures[i].GetComponent<Rigidbody>().isKinematic = true;
+                GameObject.Destroy(PlaybackStructures[i].GetComponent<Rigidbody>());
                 
                 if (PlaybackStructures[i].TryGetComponent<NetworkGameObject>(out var networkGameObject))
                     GameObject.Destroy(networkGameObject);
