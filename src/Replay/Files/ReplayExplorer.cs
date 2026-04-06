@@ -125,6 +125,8 @@ public class ReplayExplorer
 
     private List<Entry> SortFiles(List<Entry> files, SortingType sorting)
     {
+        files = files.Where(f => f != null).ToList();
+        
         IOrderedEnumerable<Entry> query =
             Main.instance.FavoritesFirst.Value
                 ? files.OrderByDescending(f => f.header is { isFavorited: true })
@@ -137,11 +139,15 @@ public class ReplayExplorer
             SortingType.Duration => query.ThenByDescending(f => f.header?.Duration ?? 0),
             SortingType.Map => query.ThenBy(f => ReplayFormatting.GetMapName(header: f.header), StringComparer.OrdinalIgnoreCase),
             SortingType.PlayerCount => query.ThenByDescending(f => f.header?.Players?.Length ?? 0),
-            SortingType.OpponentBP => query.ThenByDescending(f => f.header?.Players
-                .Where(p => !p.IsLocal)
-                .Select(p => p.BattlePoints)
-                .DefaultIfEmpty(0)
-                .Max()),
+            SortingType.OpponentBP => query.ThenByDescending(f =>
+                f.header?.Players == null
+                    ? 0
+                    : f.header.Players
+                        .Where(p => p is { IsLocal: false })
+                        .Select(p => p.BattlePoints)
+                        .DefaultIfEmpty(0)
+                        .Max()
+            ),
             SortingType.MarkerDensity => query.OrderByDescending(f =>
             {
                 int markerCount = f.header?.Markers?.Length ?? 0;
@@ -154,7 +160,7 @@ public class ReplayExplorer
 
         var newFiles = query.ToList();
         
-        if ((bool)Main.instance.SortingDirection.Value)
+        if (Main.instance.SortingDirection.Value)
             newFiles.Reverse();
         
         return newFiles;

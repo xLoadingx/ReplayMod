@@ -17,12 +17,14 @@ using Il2CppRUMBLE.Pools;
 using Il2CppRUMBLE.Poses;
 using Il2CppRUMBLE.Utilities;
 using MelonLoader;
+using MelonLoader.Utils;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using RumbleModdingAPI.RMAPI;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
+using UnityEngine.Networking;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
 using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
@@ -302,6 +304,26 @@ public class ReplayPlayback
         
             ReorderPlayers();
 
+            foreach (var info in currentReplay.Header.VoiceTrackInfos)
+            {
+                var clone = PlaybackPlayers.FirstOrDefault(p => 
+                    p.Controller.assignedPlayer.Data.GeneralData.PlayFabMasterId == info.MasterId);
+
+                if (clone == null) continue;
+
+                string voicePath = Path.Combine(currentReplay.Header.VoiceFolder, info.FileName);
+
+                var clip = ReplayVoices.LoadVoiceClipFromFile(voicePath);
+                
+                if (clip == null) return;
+                    
+                clone.VoiceTracks.Add(new Clone.VoiceTrack
+                {
+                    StartTime = info.StartTime,
+                    Clip = clip
+                });
+            }
+            
             if (currentReplay.Header.Scene == "Gym")
             {
                 foreach (var playbackPlayer in PlaybackPlayers)
@@ -362,6 +384,10 @@ public class ReplayPlayback
         if (!isPlaying) return;
         isPlaying = false;
         ReplayPlaybackControls.Close();
+        
+        string directory = Path.Combine(MelonEnvironment.UserDataDirectory, "ReplayMod", "TempReplayVoices");
+        if (Directory.Exists(directory))
+            Directory.Delete(directory, true);
         
         UpdateReplayCameraPOV(Main.LocalPlayer);
         TogglePlayback(true, ignoreIsPlaying: true);
@@ -1524,6 +1550,11 @@ public class ReplayPlayback
         public PlayerMovement pm;
         public PlayerPoseSystem ps;
 
+        public List<VoiceTrack> VoiceTracks = new();
+        public AudioSource VoiceSource;
+        
+        VoiceTrack currentTrack;
+
         public void ApplyInterpolatedPose(PlayerState a, PlayerState b, float t)
         {
             VRRig.transform.localPosition = Vector3.Lerp(a.VRRigPos, b.VRRigPos, t);
@@ -1559,6 +1590,12 @@ public class ReplayPlayback
                 ps = Controller.PlayerPoseSystem;
             }
 
+            if (VoiceSource == null)
+            {
+                VoiceSource = Controller.PlayerVoiceSystem.GetComponent<AudioSource>();
+                VoiceSource.spatialBlend = 1f;
+            }
+
             int state;
 
             if (pm.IsGrounded())
@@ -1570,6 +1607,53 @@ public class ReplayPlayback
             
             if (Main.instance.CloseHandsOnPose.Value)
                 pa.animator.SetBool(PoseFistsActiveHash, ps.IsDoingAnyPose());
+            
+            float replayTime = Main.Playback.elapsedPlaybackTime;
+
+            VoiceTrack active = null;
+
+            foreach (var t in VoiceTracks)
+            {
+                if (t.Clip == null) continue;
+
+                float end = t.StartTime + (t.Clip.samples / (float)t.Clip.frequency);
+
+                if (replayTime >= t.StartTime && replayTime < end)
+                {
+                    active = t;
+                    break;
+                }
+            }
+
+            if (active != currentTrack)
+            {
+                VoiceSource.Stop();
+                currentTrack = active;
+
+                if (active != null)
+                {
+                    VoiceSource.clip = active.Clip;
+                    VoiceSource.time = replayTime - active.StartTime;
+                    VoiceSource.Play();
+                }
+            } else if (currentTrack != null)
+            {
+                float localTime = replayTime - currentTrack.StartTime;
+
+                if (Abs(VoiceSource.time - localTime) > 0.1f)
+                    VoiceSource.time = localTime;
+
+                VoiceSource.pitch = Main.Playback.playbackSpeed;
+
+                if (!VoiceSource.isPlaying)
+                    VoiceSource.Play();
+            }
+        }
+
+        public class VoiceTrack
+        {
+            public float StartTime;
+            public AudioClip Clip;
         }
     }
     

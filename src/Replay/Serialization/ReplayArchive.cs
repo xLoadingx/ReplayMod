@@ -13,10 +13,29 @@ namespace ReplayMod.Replay.Serialization;
 
 public class ReplayArchive
 {
+    public static IEnumerator BuildReplayPackageSafe(
+        string outputPath,
+        ReplayInfo replay,
+        Action done
+    )
+    {
+        while (!Main.isSceneReady)
+            yield return null;
+
+        yield return null;
+        yield return null;
+
+        var task = BuildReplayPackage(outputPath, replay);
+
+        while (!task.IsCompleted)
+            yield return null;
+
+        done?.Invoke();
+    }
+    
     public static async Task BuildReplayPackage(
         string outputPath, 
-        ReplayInfo replay, 
-        Action done = null
+        ReplayInfo replay
     )
     {
         try
@@ -30,7 +49,7 @@ public class ReplayArchive
             Main.instance.LoggerInstance.Msg($"Compression complete ({Utilities.FormatBytes(rawReplay.Length)} -> {Utilities.FormatBytes(compressedReplay.Length)}, " +
                                              $"{100 - (compressedReplay.Length * 100.0 / rawReplay.Length):0.#}% reduction).");
             
-            MelonCoroutines.Start(FinishOnMainThread(outputPath, replay, compressedReplay, done));
+            MelonCoroutines.Start(FinishOnMainThread(outputPath, replay, compressedReplay));
         }
         catch (Exception ex)
         { 
@@ -42,8 +61,7 @@ public class ReplayArchive
     static IEnumerator FinishOnMainThread(
         string outputPath,
         ReplayInfo replay,
-        byte[] compressedReplay,
-        Action done
+        byte[] compressedReplay
     )
     {
         string manifestJson = JsonConvert.SerializeObject(
@@ -63,13 +81,42 @@ public class ReplayArchive
             using (var stream = replayEntry.Open())
                 stream.Write(compressedReplay, 0, compressedReplay.Length);
 
+            while (ReplayVoices.HasActiveWriters)
+                yield return null;
+            
+            WriteVoices(zip);
+
             ReplayAPI.InvokeArchiveBuild(zip);
         }
-
-        while (SceneManager.instance.IsLoadingScene)
-            yield return null;
         
-        done?.Invoke();
+        ReplayVoices.Cleanup();
+    }
+
+    static void WriteVoices(ZipArchive zip)
+    {
+        if (!Directory.Exists(ReplayVoices.TempVoiceDir))
+            return;
+
+        foreach (var file in Directory.GetFiles(ReplayVoices.TempVoiceDir))
+        {
+            var name = Path.GetFileName(file);
+            var entry = zip.CreateEntry($"voices/{name}", CompressionLevel.Optimal);
+
+            using var entryStream = entry.Open();
+            using var fileStream = File.OpenRead(file);
+
+            fileStream.CopyTo(entryStream);
+        }
+
+        var json = JsonConvert.SerializeObject(new VoiceArchiveData
+        {
+            Tracks = ReplayVoices.VoiceTrackInfos
+        });
+
+        var metaEntry = zip.CreateEntry("voices.json", CompressionLevel.Optimal);
+        using var metaStream = metaEntry.Open();
+        using var writer = new StreamWriter(metaStream);
+        writer.Write(json);
     }
     
     public static ReplaySerializer.ReplayHeader GetManifest(string path)

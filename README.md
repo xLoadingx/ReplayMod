@@ -132,7 +132,7 @@ The documentation for the API is found [here](docs/API/README.md)
 **ERROR** - Development of ReplayMod
 
 **TacoSlayer** - UI design help, logo design, and design feedback  
-**Blank** - Help with the binary format, GitHub workflow, and design decisions  
+**Blank** - Help with the binary format, GitHub workflow, voice playback, and design decisions  
 **MatsuNoKi** - UI feedback and design decisions  
 **ContagiousPow** - UI design feedback, testing, and other design decisions  
 **Kurama** - UI feedback  
@@ -146,6 +146,11 @@ Thanks to everyone who helped test ReplayMod and report issues:
 boxyk9, Roydaboy27, Dr.Rock, MatsuNoKi, ContagiousPow, iListen2Sound,  
 Footi, Lemmi05, @pple, WillNinja08, Peanut, BlueEyedFox, Fjm12, Pep,  
 Hudnimynini, Yiak65, Grand, ChimmyTv, Alexderus117, and BIVN
+
+## Third-Party Libraries
+
+- Concentus (Opus codec implementation)
+  BSD licensed - see [ThirdPartyLicenses.txt](ThirdPartyLicenses.txt)
 
 ---
 

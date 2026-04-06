@@ -8,6 +8,7 @@ using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.MoveSystem;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Scaling;
+using MelonLoader.Utils;
 using Newtonsoft.Json;
 using UnityEngine;
 using BinaryReader = System.IO.BinaryReader;
@@ -50,6 +51,9 @@ public class ReplaySerializer
         public StructureInfo[] Structures;
         public ScenePropInfo[] SceneProps;
         public Marker[] Markers;
+
+        [JsonIgnore] public string VoiceFolder;
+        [JsonIgnore] public List<VoiceTrackInfo> VoiceTrackInfos;
 
         public string Guid;
     }
@@ -632,6 +636,8 @@ public class ReplaySerializer
             Main.instance.LoggerInstance.Error("Missing replay");
             return new ReplayInfo();
         }
+        
+        ExtractVoices(zip, header);
 
         using var ms = new MemoryStream();
         using var stream = replayEntry.Open();
@@ -665,6 +671,53 @@ public class ReplaySerializer
         );
 
         return replayInfo;
+    }
+
+    public static void ExtractVoices(ZipArchive zip, ReplayHeader header)
+    {
+        var voicesEntry = zip.GetEntry("voices.json");
+
+        if (voicesEntry != null)
+        {
+            using var reader = new StreamReader(voicesEntry.Open());
+            string json = reader.ReadToEnd();
+            
+            header.VoiceTrackInfos = 
+                JsonConvert.DeserializeObject<VoiceArchiveData>(json)?.Tracks 
+                ?? new List<VoiceTrackInfo>();
+        }
+        else {
+            return;
+        }
+        
+        string baseDir = Path.Combine(
+            MelonEnvironment.UserDataDirectory,
+            "ReplayMod",
+            "TempReplayVoices"
+        );
+
+        string replayDir = Path.Combine(baseDir, header.Guid);
+
+        if (Directory.Exists(replayDir))
+            Directory.Delete(replayDir, true);
+        
+        Directory.CreateDirectory(replayDir);
+
+        foreach (var entry in zip.Entries)
+        {
+            if (!entry.FullName.StartsWith("voices/"))
+                continue;
+
+            string fileName = Path.GetFileName(entry.FullName);
+            string outPath = Path.Combine(replayDir, fileName);
+
+            using var entryStream = entry.Open();
+            using var fileStream = File.Create(outPath);
+
+            entryStream.CopyTo(fileStream);
+        }
+
+        header.VoiceFolder = replayDir;
     }
 
     private static Frame[] ReadFrames(
@@ -1248,19 +1301,31 @@ public enum PlayerShiftstoneVFX : byte
 public class VoiceTrackInfo
 {
     public VoiceTrackInfo(
+        string MasterId,
         int ActorId,
         int VoiceId,
-        string FileName
+        string FileName,
+        float StartTime
     )
     {
+        this.MasterId = MasterId;
         this.ActorId = ActorId;
         this.VoiceId = VoiceId;
         this.FileName = FileName;
+        this.StartTime = StartTime;
     }
 
+    public string MasterId;
     public int ActorId;
     public int VoiceId;
     public string FileName;
+    public float StartTime;
+}
+
+[Serializable]
+public class VoiceArchiveData
+{
+    public List<VoiceTrackInfo> Tracks;
 }
 
 public enum StackType : byte {

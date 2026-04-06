@@ -31,7 +31,9 @@ public class ReplayRecording
 {
     public bool isRecording = false;
     
-    public  float lastSampleTime = 0f;
+    public float lastSampleTime = 0f;
+
+    public float recordingStartTime;
 
     public int pingSum;
     public int pingCount;
@@ -50,6 +52,7 @@ public class ReplayRecording
     public List<Player> RecordedPlayers = new();
     public Dictionary<string, int> PlayerSlots = new();
     public Dictionary<string, PlayerInfo> PlayerInfos = new();
+    public List<PlayerInfo> RecordedPlayerInfos = new();
     public List<StructureInfo> StructureInfos = new();
     public List<ScenePropInfo> ScenePropInfos = new();
     
@@ -411,31 +414,7 @@ public class ReplayRecording
             Frames = frames
         };
 
-        var orderedInfos = new List<PlayerInfo>();
-
-        foreach (var player in RecordedPlayers)
-        {
-            if (player == null)
-            {
-                orderedInfos.Add(null);
-                Main.ReplayError($"Missing player in recording list.");
-                continue;
-            }
-            
-            var id = player.Data.GeneralData.PlayFabMasterId;
-
-            if (!PlayerInfos.TryGetValue(id, out var info))
-            {
-                Main.ReplayError($"Missing PlayerInfo for {id}, creating fallback");
-
-                info = new PlayerInfo(player);
-                PlayerInfos[id] = info;
-            }
-            
-            orderedInfos.Add(info);
-        }
-
-        replayInfo.Header.Players = orderedInfos.ToArray();
+        replayInfo.Header.Players = RecordedPlayerInfos.ToArray();
         
         replayInfo.Header.MarkerCount = markers.Count;
         replayInfo.Header.Markers = markers.ToArray();
@@ -469,7 +448,7 @@ public class ReplayRecording
         Main.DebugLog($"[{logPrefix}] Header | Scene: {recordingSceneName} | Duration: {duration:F2}s | Players: {replayInfo.Header.Players.Length} | Structures: {StructureInfos.Count}");
 
         string path = $"{ReplayFiles.replayFolder}/Replays/{ReplayFormatting.GetReplayName(replayInfo, isBufferClip)}";
-        ReplayArchive.BuildReplayPackage(
+        MelonCoroutines.Start(ReplayArchive.BuildReplayPackageSafe(
             path,
             replayInfo,
             () =>
@@ -500,7 +479,7 @@ public class ReplayRecording
 
                 ReplayFiles.ReloadReplays();
             }
-        );
+        ));
     }
 
     public bool TryRegisterStructure(Structure structure)
@@ -560,6 +539,8 @@ public class ReplayRecording
         Pedestals.Clear();
 
         recordingSceneName = Main.currentScene;
+
+        recordingStartTime = Time.time;
         
         foreach (var structure in CombatManager.instance.structures)
             TryRegisterStructure(structure);
@@ -624,7 +605,7 @@ public class ReplayRecording
             Main.DebugLog($"[Recording] New Player Slot | Id: {id} | Slot: {index}");
         }
         
-        MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player));
+        MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player, index));
 
         return index;
     }
@@ -677,6 +658,10 @@ public class ReplayRecording
         
         isRecording = false;
         ReplayVoices.StopRecording();
+        
+        PlayerManager.instance.LocalPlayer.Controller
+            .PlayerVoiceSystem.recorder.DebugEchoMode = true;
+        
         SaveReplay(Frames.ToArray(), recordingMarkers, "Recording", onSave: (info, path) => ReplayAPI.ReplaySavedInternal(info, false, path));
 
         Reset();
@@ -687,6 +672,9 @@ public class ReplayRecording
     public void StartRecording()
     {
         isRecording = true;
+
+        PlayerManager.instance.LocalPlayer.Controller
+            .PlayerVoiceSystem.recorder.DebugEchoMode = true;
         
         ReplayVoices.StartRecording();
         SetupRecordingData();

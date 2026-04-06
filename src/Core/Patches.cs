@@ -257,15 +257,21 @@ public class Patches
             Main.Recording.RegisterPlayer(player);
         }
 
-        public static IEnumerator VisualDataDelay(Player player)
+        public static IEnumerator VisualDataDelay(Player player, int slot)
         {
             yield return new WaitForSeconds(0.1f);
 
             if (player == null)
                 yield break;
 
-            var id = player.Data.GeneralData.PlayFabMasterId;
-            Main.Recording.PlayerInfos[id] = new PlayerInfo(player);
+            var info = new PlayerInfo(player);
+
+            Main.Recording.PlayerInfos[player.Data.GeneralData.PlayFabMasterId] = info;
+
+            while (Main.Recording.RecordedPlayerInfos.Count <= slot)
+                Main.Recording.RecordedPlayerInfos.Add(null);
+            
+            Main.Recording.RecordedPlayerInfos[slot] = new PlayerInfo(player);
         }
     }
 
@@ -315,6 +321,12 @@ public class Patches
         {
             if (!Main.instance.UIInitialized)
                 return;
+
+            if (Main.Recording.isRecording)
+            {
+                Main.isSceneReady = false;
+                Main.Recording.StopRecording();
+            }
             
             Main.Playback.StopReplay();
 
@@ -382,16 +394,6 @@ public class Patches
                 return true;
 
             return false;
-        }
-    }
-    [HarmonyPatch(typeof(VoiceClient), nameof(VoiceClient.createLocalVoice))]
-    public static class Patch_VoiceClient_createLocalVoice
-    {
-        static void Postfix(Il2CppPhoton.Voice.VoiceClient __instance, Il2CppPhoton.Voice.LocalVoice __result, int __0, Il2CppSystem.Func<byte, int, Il2CppPhoton.Voice.LocalVoice> __1)
-        {
-            if (Main.Recording.isRecording){
-                __result.DebugEchoMode = true;
-            }
         }
     }
   }

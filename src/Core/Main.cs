@@ -10,9 +10,11 @@ using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Slabs.Forms;
 using Il2CppRUMBLE.Social.Phone;
+using Il2CppSystem;
 using Il2CppSystem.IO;
 using Il2CppTMPro;
 using MelonLoader;
+using MelonLoader.Utils;
 using ReplayMod.Replay;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
@@ -32,6 +34,7 @@ using Utilities = ReplayMod.Replay.Utilities;
 
 [assembly: MelonInfo(typeof(Main), BuildInfo.Name, BuildInfo.Version, BuildInfo.Author)]
 [assembly: MelonGame("Buckethead Entertainment", "RUMBLE")]
+[assembly: MelonColor(255, 255, 0, 0), MelonAuthorColor(255, 255, 0, 0)]
 [assembly: MelonAdditionalDependencies("RumbleModdingAPI","UIFramework")]
 
 namespace ReplayMod.Core;
@@ -49,7 +52,9 @@ public class Main : MelonMod
     // Runtime
     public static Main instance;
     public Main() => instance = this;
+    
     public static string currentScene => Calls.Scene.GetSceneName();
+    public static bool isSceneReady = false;
 
     public static ReplayPlayback Playback;
     public static ReplayRecording Recording;
@@ -89,6 +94,8 @@ public class Main : MelonMod
 
     public MelonPreferences_Entry<bool> HandFingerRecording = new();
     public MelonPreferences_Entry<bool> CloseHandsOnPose = new();
+
+    public MelonPreferences_Entry<bool> VoiceRecording = new();
 
     // Automatic Markers - Match End
     public MelonPreferences_Entry<bool> EnableMatchEndMarker = new();
@@ -341,8 +348,6 @@ public class Main : MelonMod
         {
             if (EnableMatchEndMarker.Value)
                 Recording.AddMarker("core.matchEnded", Color.black);
-
-            Recording.StopRecording();
         };
         
         ReplayFiles.Init();
@@ -361,6 +366,10 @@ public class Main : MelonMod
     {
         if (Recording.isRecording)
             Recording.StopRecording();
+
+        string directory = Path.Combine(MelonEnvironment.UserDataDirectory, "ReplayMod", "TempReplayVoices");
+        if (System.IO.Directory.Exists(directory))
+            System.IO.Directory.Delete(directory, true);
     }
     
     public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -556,6 +565,8 @@ public class Main : MelonMod
 
         Playback.SetPlaybackSpeed(1f);
         ReplayPlayback.isReplayScene = false;
+
+        isSceneReady = true;
     }
 
     IEnumerator DelayedParkLoad()
