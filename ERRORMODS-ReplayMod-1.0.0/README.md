@@ -147,6 +147,11 @@ boxyk9, Roydaboy27, Dr.Rock, MatsuNoKi, ContagiousPow, iListen2Sound,
 Footi, Lemmi05, @pple, WillNinja08, Peanut, BlueEyedFox, Fjm12, Pep,  
 Hudnimynini, Yiak65, Grand, ChimmyTv, Alexderus117, and BIVN
 
+## Third-Party Libraries
+
+- Concentus (Opus codec implementation)
+  BSD licensed - see [ThirdPartyLicenses.txt](https://github.com/xLoadingx/ReplayMod/blob/main/ThirdPartyLicenses.txt)
+
 ---
 
 ## And thanks to the rest of the rumble community for supporting me through this project!

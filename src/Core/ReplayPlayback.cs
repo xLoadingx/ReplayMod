@@ -583,6 +583,8 @@ public class ReplayPlayback
 
                 playerPool.Add(temp);
             }
+            
+            PlayerManager.instance.AllPlayers.Add(temp.Controller.assignedPlayer);
 
             temp.gameObject.SetActive(true);
             PlaybackPlayers[i] = temp;
@@ -621,7 +623,6 @@ public class ReplayPlayback
         data.PlayerMeasurement = pInfo.Measurement.Length != 0 ? pInfo.Measurement : Main.LocalPlayer.Data.PlayerMeasurement;
 
         Player newPlayer = Player.CreateRemotePlayer(data);
-        PlayerManager.instance.AllPlayers.Add(newPlayer);
         PlayerManager.instance.SpawnPlayerController(newPlayer, Vector3.zero, Quaternion.identity);
 
         while (newPlayer.Controller == null)
@@ -1553,7 +1554,7 @@ public class ReplayPlayback
         public List<VoiceTrack> VoiceTracks = new();
         public AudioSource VoiceSource;
         
-        VoiceTrack currentTrack;
+        public VoiceTrack currentTrack;
 
         public void ApplyInterpolatedPose(PlayerState a, PlayerState b, float t)
         {
@@ -1636,7 +1637,7 @@ public class ReplayPlayback
                     VoiceSource.time = replayTime - active.StartTime;
                     VoiceSource.Play();
                 }
-            } else if (currentTrack != null)
+            } else if (currentTrack != null && Main.instance.ToggleVoices.Value)
             {
                 float localTime = replayTime - currentTrack.StartTime;
 

@@ -1,6 +1,6 @@
 {
   "name": "ReplayMod",
-  "version_number": "1.1.1",
+  "version_number": "1.2.0",
   "website_url": "https://github.com/xLoadingx/ReplayMod",
   "description": "Full replay engine for RUMBLE with recording, buffering, playback controls, and mod extension support.",
   "dependencies": [ "LavaGang-MelonLoader-0.7.1", "UlvakSkillz-RumbleModdingAPI-4.1.4", "Reverb_and___and_Spice-UIFramework-0.4.0" ]

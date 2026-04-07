@@ -23,23 +23,33 @@ public static class ReplayVoices
     private static PunVoiceClient voice;
 
     private static readonly Dictionary<(int actorId, int voiceId), VoiceStreamWriter> writers = new();
-    public static string TempVoiceDir = Path.Combine(MelonEnvironment.UserDataDirectory, "ReplayMod", "TempVoices");
+    public static string VoiceCacheDir = Path.Combine(MelonEnvironment.UserDataDirectory, "ReplayMod", "VoiceCache");
 
     public static List<VoiceTrackInfo> VoiceTrackInfos = new();
 
-    private static bool isRecording;
+    public static bool isRecording;
     private static bool subscribed;
 
     public static bool HasActiveWriters => writers.Count > 0;
 
     public static void StartRecording()
     {
+        if (!Main.instance.VoiceRecording.Value)
+            return;
+        
         isRecording = true;
         
         VoiceTrackInfos.Clear();
-        
-        if (Directory.Exists(TempVoiceDir))
-            Directory.Delete(TempVoiceDir, true);
+
+        if (Directory.Exists(VoiceCacheDir))
+        {
+            foreach (var file in Directory.GetFiles(VoiceCacheDir))
+                File.Delete(file);
+        }
+        else
+        {
+            Directory.CreateDirectory(VoiceCacheDir);
+        }
 
         if (PunVoiceClient.instance is PunVoiceClient voice)
         {
@@ -53,7 +63,7 @@ public static class ReplayVoices
             foreach (var remoteVoiceLink in voice.cachedRemoteVoices)
                 OnRemoteVoiceLinkAdded(remoteVoiceLink);
 
-            Directory.CreateDirectory(TempVoiceDir);
+            Directory.CreateDirectory(VoiceCacheDir);
         }
     }
 
@@ -117,8 +127,8 @@ public static class ReplayVoices
     {
         VoiceTrackInfos.Clear();
         
-        if (Directory.Exists(TempVoiceDir))
-            Directory.Delete(TempVoiceDir, true);
+        if (Directory.Exists(VoiceCacheDir))
+            Directory.Delete(VoiceCacheDir, true);
     }
     
     private static void stopWriter(int actorId, int voiceId)
@@ -159,7 +169,7 @@ public static class ReplayVoices
             if (!writers.TryGetValue((playerId, voiceId), out var writer))
             {
                 string fileName = $"p{name}_{masterId}_v{voiceId}_{Time.frameCount}.ogg";
-                string path = Path.Combine(TempVoiceDir, fileName);
+                string path = Path.Combine(VoiceCacheDir, fileName);
 
                 writer = new VoiceStreamWriter(
                     voiceId,

@@ -94,10 +94,10 @@ public class ReplayArchive
 
     static void WriteVoices(ZipArchive zip)
     {
-        if (!Directory.Exists(ReplayVoices.TempVoiceDir))
+        if (!Directory.Exists(ReplayVoices.VoiceCacheDir))
             return;
 
-        foreach (var file in Directory.GetFiles(ReplayVoices.TempVoiceDir))
+        foreach (var file in Directory.GetFiles(ReplayVoices.VoiceCacheDir))
         {
             var name = Path.GetFileName(file);
             var entry = zip.CreateEntry($"voices/{name}", CompressionLevel.Optimal);

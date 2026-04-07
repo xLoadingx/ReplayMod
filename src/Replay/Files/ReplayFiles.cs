@@ -454,8 +454,7 @@ public static class ReplayFiles
             icon.material.SetTexture("_Texture", entry.IsFolder ? folderIcon : replayIcon);
             icon.transform.localScale = (entry.IsFolder ? Vector3.one * 0.0522f : new Vector3(0.0422f, 0.0402f, 0.0422f));
             
-            if (!entry.IsFolder)
-                button.transform.GetChild(1).GetChild(7).gameObject.SetActive(entry.header.isFavorited);
+            button.transform.GetChild(1).GetChild(7).gameObject.SetActive(!entry.IsFolder && entry.header.isFavorited);
         }
     }
     

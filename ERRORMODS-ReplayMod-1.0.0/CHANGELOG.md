@@ -1,3 +1,12 @@
+# 1.2.0
+- Added MIT License to the project
+- Added Melon Color back (red)
+- Made recordings only serialize after scene loads to prevent errors
+- Made players not able to be null in infos anymore (hopefully)
+- Added voice recording and playback pipeline
+- Fixed corrupted files in the explorer making the game freak out and break
+- Made favorite icon disappear correctly if it's a folder entry
+
 # 1.1.1
 - Me when I forget to add the dependencies
 

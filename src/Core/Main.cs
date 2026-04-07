@@ -43,8 +43,8 @@ public static class BuildInfo
 {
     public const string Name = "ReplayMod";
     public const string Author = "ERROR";
-    public const string Version = "1.1.2";
-    public const string FormatVersion = "1.0.0";
+    public const string Version = "1.2.0";
+    public const string FormatVersion = "1.1.0";
 }
 
 public class Main : MelonMod
@@ -120,6 +120,7 @@ public class Main : MelonMod
     public MelonPreferences_Entry<bool> ToggleDust;
     public MelonPreferences_Entry<bool> ToggleHitmarkers;
     public MelonPreferences_Entry<bool> ToggleRockCam;
+    public MelonPreferences_Entry<bool> ToggleVoices;
 
     // Replay Explorer
     public MelonPreferences_Entry<ReplayExplorer.SortingType> ExplorerSorting;
@@ -196,6 +197,8 @@ public class Main : MelonMod
         
         HandFingerRecording = recordingFolder.CreateEntry("Finger_Animation_Recording", true, "Finger Animation Recording", "Controls whether finger input values are recorded into the replay.");
         CloseHandsOnPose = recordingFolder.CreateEntry("Close_Hands_On_Pose", true, "Close Hands On Pose", "Closes the hands of a clone when they do a pose.");
+
+        VoiceRecording = recordingFolder.CreateEntry("Voice_Recording", true, "Record In-Game Voices", "Toggles whether in-game voices are recorded into replays.");
         
         var automaticMarkersFolder = MelonPreferences.CreateCategory("Automatic_Markers", "Automatic Markers");
         automaticMarkersFolder.SetFilePath(configPath);
@@ -223,6 +226,7 @@ public class Main : MelonMod
         ToggleDust = playbackTogglesFolder.CreateEntry("Toggle_Dust", true, "Toggle Dust", "Toggles whether dust from replay structures are visible.");
         ToggleHitmarkers = playbackTogglesFolder.CreateEntry("Toggle_Hitmarkers", true, "Toggle Hitmarkers", "Toggles whether hitmarkers (on remote player damage) are visible.");
         ToggleRockCam = playbackTogglesFolder.CreateEntry("Toggle_Rock_Cam", true, "Toggle Rock Cam", "Toggles whether replay clones Rock Cams are visible.");
+        ToggleVoices = playbackTogglesFolder.CreateEntry("Toggle_Voices", true, "Toggle Voice Playback", "Toggles whether replay clones playback the recorded speech.");
 
         var explorerFolder = MelonPreferences.CreateCategory("Replay_Explorer", "Replay Explorer");
         explorerFolder.SetFilePath(configPath);
@@ -314,6 +318,26 @@ public class Main : MelonMod
         {
             replayTable?.gameObject.SetActive(value);
             replayTable?.metadataText?.gameObject.SetActive(value);
+        });
+        
+        VoiceRecording.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            if (value && !ReplayVoices.isRecording)
+                ReplayVoices.StartRecording();
+            else if (!value && ReplayVoices.isRecording)
+                ReplayVoices.StopRecording();
+        });
+        
+        ToggleVoices.OnEntryValueChanged.Subscribe((_, value) =>
+        {
+            if (!Playback.isPlaying)
+                return;
+            
+            if (!value)
+            {
+                foreach (var clone in Playback.PlaybackPlayers)
+                    clone.VoiceSource.Stop();
+            }
         });
         
         UI.Register(this,
@@ -409,8 +433,14 @@ public class Main : MelonMod
         recordingIcon.transform.localPosition = new Vector3(0.2313f, 0.0233f, 0.9604f);
         recordingIcon.transform.localRotation = Quaternion.Euler(20.2549f, 18.8002f, 0);
         recordingIcon.transform.localScale = Vector3.one * 0.4f;
+
+        var recordingIconComp = recordingIcon.gameObject.AddComponent<ReplayRecording.RecordingIcon>();
+        recordingIconComp.tmp = recordingIcon;
+        recordingIconComp.recording = Recording;
         
-        ReplayRecording.recordingIcon = recordingIcon;
+        ReplayRecording.recordingIcon = recordingIconComp;
+        
+        recordingIconComp.SyncToState();
         
         if (((currentScene is "Map0" or "Map1" && AutoRecordMatches.Value && PlayerManager.instance.AllPlayers.Count > 1) || (currentScene == "Park" && AutoRecordParks.Value)) && !ReplayPlayback.isReplayScene)
             Recording.StartRecording();

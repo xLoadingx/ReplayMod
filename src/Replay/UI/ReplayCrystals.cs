@@ -149,7 +149,7 @@ public static class ReplayCrystals
 
         foreach (var crystal in Crystals)
         {
-            if (crystal == null)
+            if (crystal?.transform == null)
                 continue;
             
             float sqr = (crystal.transform.position - handPos).sqrMagnitude;

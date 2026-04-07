@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Il2CppPhoton.Pun;
@@ -17,6 +18,7 @@ using ReplayMod.Replay.UI;
 using UnityEngine;
 using UnityEngine.VFX;
 using Player = Il2CppRUMBLE.Players.Player;
+using Stack = Il2CppRUMBLE.MoveSystem.Stack;
 
 namespace ReplayMod.Core;
 
@@ -43,7 +45,30 @@ public class ReplayRecording
     
     public string recordingSceneName;
 
-    public static TextMeshPro recordingIcon;
+    public static RecordingIcon recordingIcon;
+    
+    public enum RecordingState
+    {
+        Idle,
+        Recording,
+        Saving
+    }
+    
+    private RecordingState _recordingState = RecordingState.Idle;
+    public RecordingState CurrentRecordingState
+    {
+        get => _recordingState;
+        set
+        {
+            if (_recordingState == value)
+                return;
+
+            var old = _recordingState;
+            _recordingState = value;
+
+            recordingIcon?.TransitionAnimation(old, value);
+        }
+    }
     
     public List<Frame> Frames = new();
     public List<EventChunk> Events = new();
@@ -366,6 +391,8 @@ public class ReplayRecording
             Main.instance.LoggerInstance.Warning($"{logPrefix} stopped, but no frames were captured. Replay was not saved.");
             return;
         }
+
+        CurrentRecordingState = RecordingState.Saving;
         
         float duration = frames[^1].Time - frames[0].Time;
 
@@ -460,20 +487,7 @@ public class ReplayRecording
                 if (Main.instance.EnableHaptics.Value)
                     Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
                 
-                if (recordingIcon != null)
-                {
-                    recordingIcon.color = Color.green;
-            
-                    MelonCoroutines.Start(Utilities.LerpValue(
-                        () => recordingIcon.color,
-                        c => recordingIcon.color = c,
-                        Color.Lerp,
-                        isBufferClip && isRecording ? Color.red : new Color (0, 1, 0, 0),
-                        0.7f,
-                        Utilities.EaseOut,
-                        delay: 0.1f
-                    ));
-                }
+                CurrentRecordingState = isRecording ? RecordingState.Recording : RecordingState.Idle;
 
                 onSave?.Invoke(replayInfo, path);
 
@@ -682,8 +696,7 @@ public class ReplayRecording
         Events.Clear();
         recordingMarkers.Clear();
 
-        if (recordingIcon != null)
-            recordingIcon.color = Color.red;
+        CurrentRecordingState = RecordingState.Recording;
         
         if (Main.instance.EnableHaptics.Value)
             Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
@@ -702,5 +715,129 @@ public class ReplayRecording
         pingSum = 0;
         pingMax = 0;
         pingMin = int.MaxValue;
+    }
+
+    [RegisterTypeInIl2Cpp]
+    public class RecordingIcon : MonoBehaviour
+    {
+        public TextMeshPro tmp;
+        public ReplayRecording recording;
+
+        public void TransitionAnimation(RecordingState from, RecordingState to)
+        {
+            if (from == to || tmp == null)
+                return;
+
+            recording.CurrentRecordingState = to;
+
+            switch ((from, to))
+            {
+                case (RecordingState.Idle, RecordingState.Recording):
+                    AnimateScale(Vector3.one * 0.32f, Vector3.one * 0.4f, 0.5f, to, Utilities.EaseOut);
+                    AnimateColor(new Color(1, 0, 0, 0), Color.red, 0.5f, to, Utilities.EaseOut);
+                    break;
+                
+                case (RecordingState.Idle, RecordingState.Saving):
+                    AnimateColor(new Color(1, 0, 0, 0), Color.red, 0.2f, to, Utilities.EaseOut, () => {
+                        MelonCoroutines.Start(Pulse());
+                    });
+                    break;
+
+                case (_, RecordingState.Saving):
+                    AnimateScale(transform.localScale, Vector3.one * 0.4f, 0.8f, to, Utilities.EaseIn);
+                    MelonCoroutines.Start(Pulse());
+                    break;
+                
+                case (RecordingState.Saving, RecordingState.Recording):
+                    AnimateScale(transform.localScale, Vector3.one * 0.4f, 0.8f, to, Utilities.EaseIn);
+                    AnimateColor(Color.green, Color.red, 1.5f, to, Utilities.EaseOut);
+                    break;
+                
+                case (RecordingState.Saving, RecordingState.Idle):
+                    AnimateScale(transform.localScale, Vector3.one * 0.4f, 0.8f, to, Utilities.EaseIn);
+                    AnimateColor(Color.green, Color.clear, 1.5f, to, Utilities.EaseOut);
+                    break;
+                
+                case (_, RecordingState.Idle):
+                    tmp.color = Color.clear;
+                    transform.localScale = Vector3.one * 0.4f;
+                    break;
+            }
+        }
+
+        public void SyncToState()
+        {
+            switch (recording.CurrentRecordingState)
+            {
+                case RecordingState.Recording:
+                    transform.localScale = Vector3.one * 0.4f;
+                    tmp.color = Color.red;
+                    break;
+                
+                case RecordingState.Idle:
+                    transform.localScale = Vector3.one * 0.4f;
+                    tmp.color = Color.clear;
+                    break;
+                
+                case RecordingState.Saving:
+                    transform.localScale = Vector3.one * 0.4f;
+                    MelonCoroutines.Start(Pulse());
+                    break;
+            }
+        }
+
+        public void AnimateColor(Color from, Color to, float time, RecordingState required, Func<float, float> easing, Action done = null)
+        {
+            tmp.color = from;
+            
+            MelonCoroutines.Start(Utilities.LerpValue(
+                () => tmp.color,
+                c => tmp.color = c,
+                Color.Lerp,
+                to,
+                time,
+                easing,
+                isValid: () => recording.CurrentRecordingState == required,
+                done: done
+            ));
+        }
+
+        public void AnimateScale(Vector3 from, Vector3 to, float time, RecordingState required, Func<float, float> easing, Action done = null)
+        {
+            transform.localScale = from;
+            
+            MelonCoroutines.Start(Utilities.LerpValue(
+                () => transform.localScale,
+                s => transform.localScale = s,
+                Vector3.Lerp,
+                to,
+                time,
+                easing,
+                isValid: () => recording.CurrentRecordingState == required,
+                done: done
+            ));
+        }
+
+        public IEnumerator Pulse()
+        {
+            Color a = new Color(1f, 0.2f, 0.2f);
+            Color b = new Color(1f, 0.7f, 0.7f);
+
+            float t = 0f;
+
+            while (recording.CurrentRecordingState == RecordingState.Saving)
+            {
+                t += Time.deltaTime * 2f;
+
+                float ping = Mathf.PingPong(t, 1f);
+                ping = Utilities.EaseInOut(ping);
+                tmp.color = Color.Lerp(a, b, ping);
+
+                float scale = Mathf.Lerp(0.95f, 1.05f, ping);
+                transform.localScale = Vector3.one * (0.4f * scale);
+
+                yield return null;
+            }
+        }
     }
 }
