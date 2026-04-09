@@ -176,6 +176,7 @@ public static class ReplayVoices
                     link.VoiceInfo.SamplingRate,
                     link.VoiceInfo.Channels,
                     path,
+                    bitrate: Mathf.Clamp(Main.instance.voiceBitrate.Value, 8, 128),
                     initalTimeStamp: startTime // file doesnt actually start until the person starts speaking for the first time
                 );
 
@@ -228,9 +229,8 @@ public static class ReplayVoices
             Channels = channels;
 
             _fileStream = File.Create(path);
-
-
-            _encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, Concentus.Enums.OpusApplication.OPUS_APPLICATION_VOIP);
+            
+            _encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, OpusApplication.OPUS_APPLICATION_VOIP);
             _encoder.Bitrate = bitrate;
             _encoder.Complexity = complexity;
             _encoder.SignalType = OpusSignal.OPUS_SIGNAL_VOICE;

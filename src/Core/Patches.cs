@@ -5,7 +5,6 @@ using System.Linq;
 using HarmonyLib;
 using Il2Cpp;
 using Il2CppPhoton.Pun;
-using Il2CppPhoton.Voice;
 using Il2CppRUMBLE.Audio;
 using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Input;

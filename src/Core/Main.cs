@@ -95,7 +95,9 @@ public class Main : MelonMod
     public MelonPreferences_Entry<bool> HandFingerRecording = new();
     public MelonPreferences_Entry<bool> CloseHandsOnPose = new();
 
+    // Recording - Voices
     public MelonPreferences_Entry<bool> VoiceRecording = new();
+    public MelonPreferences_Entry<int> voiceBitrate = new();
 
     // Automatic Markers - Match End
     public MelonPreferences_Entry<bool> EnableMatchEndMarker = new();
@@ -151,7 +153,6 @@ public class Main : MelonMod
     // Other
     public MelonPreferences_Entry<float> tableOffset;
     public MelonPreferences_Entry<bool> enableDebug;
-    public MelonPreferences_Category extensionsFolder;
 
     // ------------
 
@@ -198,7 +199,10 @@ public class Main : MelonMod
         HandFingerRecording = recordingFolder.CreateEntry("Finger_Animation_Recording", true, "Finger Animation Recording", "Controls whether finger input values are recorded into the replay.");
         CloseHandsOnPose = recordingFolder.CreateEntry("Close_Hands_On_Pose", true, "Close Hands On Pose", "Closes the hands of a clone when they do a pose.");
 
-        VoiceRecording = recordingFolder.CreateEntry("Voice_Recording", true, "Record In-Game Voices", "Toggles whether in-game voices are recorded into replays.");
+        var voiceFolder = MelonPreferences.CreateCategory("Voices");
+        
+        VoiceRecording = voiceFolder.CreateEntry("Voice_Recording", true, "Record In-Game Voices", "Toggles whether in-game voices are recorded into replays.");
+        voiceBitrate = voiceFolder.CreateEntry("Voice_Bitrate", 30, "Voice Bitrate", "Determines what bitrate voices are recorded in.\nDefault: 30");
         
         var automaticMarkersFolder = MelonPreferences.CreateCategory("Automatic_Markers", "Automatic Markers");
         automaticMarkersFolder.SetFilePath(configPath);
@@ -217,7 +221,7 @@ public class Main : MelonMod
         PlaybackControlsFollow = playbackFolder.CreateEntry("Playback_Controls_Follow_Player", false, "Playback Controls Follow Player", "Makes the playback controls menu follow you when opened.");
         DestroyControlsOnPunch = playbackFolder.CreateEntry("Destroy_Controls_On_Punch", true, "Destroy Controls On Punch", "Destroys the playback controls when you punch the slab hard enough.");
         
-        var playbackTogglesFolder = MelonPreferences.CreateCategory("Toggles");
+        var playbackTogglesFolder = MelonPreferences.CreateCategory("Visual Toggles");
         playbackTogglesFolder.SetFilePath(configPath);
 
         ToggleUI = playbackTogglesFolder.CreateEntry("Toggle_UI", true, "Toggle UI", "Toggles whether the UI for selecting replays is visible.");
@@ -398,6 +402,8 @@ public class Main : MelonMod
     
     public override void OnSceneWasLoaded(int buildIndex, string sceneName)
     {
+        isSceneReady = false;
+        
         if (currentScene == "Loader" || !UIInitialized)
             return;
 

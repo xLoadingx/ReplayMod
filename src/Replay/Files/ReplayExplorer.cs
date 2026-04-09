@@ -210,8 +210,7 @@ public class ReplayExplorer
     public void Next()
     {
         if (currentReplayEntries.Count == 0) return;
-
-        if (GetPage().All(e => e.IsFolder)) return;
+        if (currentReplayEntries.All(e => e.IsFolder)) return;
 
         do
         {
@@ -225,8 +224,7 @@ public class ReplayExplorer
     public void Previous()
     {
         if (currentReplayEntries.Count == 0) return;
-
-        if (GetPage().All(e => e.IsFolder)) return;
+        if (currentReplayEntries.All(e => e.IsFolder)) return;
         
         do
         {

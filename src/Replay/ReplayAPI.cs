@@ -8,20 +8,16 @@ using ReplayMod.Core;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
-using RumbleModUI;
-using RumbleModUIPlus;
 using UnityEngine;
 using BuildInfo = ReplayMod.Core.BuildInfo;
 using CompressionLevel = System.IO.Compression.CompressionLevel;
 using Main = ReplayMod.Core.Main;
-using Mod = RumbleModUI.Mod;
 
 namespace ReplayMod.Replay;
 
 public static class ReplayAPI
 {
     private static readonly List<ReplayExtension> _extensions = new();
-    private static readonly List<ModSettingFolder> _extensionFolders = new(); 
     
     /// <summary>
     /// Invoked when a replay is selected from the UI.

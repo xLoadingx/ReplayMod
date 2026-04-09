@@ -827,14 +827,17 @@ public class ReplayRecording
 
             while (recording.CurrentRecordingState == RecordingState.Saving)
             {
-                t += Time.deltaTime * 2f;
+                if (tmp != null && transform != null)
+                {
+                    t += Time.deltaTime * 2f;
 
-                float ping = Mathf.PingPong(t, 1f);
-                ping = Utilities.EaseInOut(ping);
-                tmp.color = Color.Lerp(a, b, ping);
+                    float ping = Mathf.PingPong(t, 1f);
+                    ping = Utilities.EaseInOut(ping);
+                    tmp.color = Color.Lerp(a, b, ping);
 
-                float scale = Mathf.Lerp(0.95f, 1.05f, ping);
-                transform.localScale = Vector3.one * (0.4f * scale);
+                    float scale = Mathf.Lerp(0.95f, 1.05f, ping);
+                    transform.localScale = Vector3.one * (0.4f * scale);
+                }
 
                 yield return null;
             }

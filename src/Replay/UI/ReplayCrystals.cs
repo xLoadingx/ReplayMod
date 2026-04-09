@@ -52,7 +52,7 @@ public static class ReplayCrystals
             }
         }
         
-        if (heldCrystal == null)
+        if (heldCrystal == null && Main.isSceneReady)
         {
             if (Calls.ControllerMap.RightController.GetGrip() > 0.5f)
             {

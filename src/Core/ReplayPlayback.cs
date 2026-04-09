@@ -304,24 +304,33 @@ public class ReplayPlayback
         
             ReorderPlayers();
 
-            foreach (var info in currentReplay.Header.VoiceTrackInfos)
+            try
             {
-                var clone = PlaybackPlayers.FirstOrDefault(p => 
-                    p.Controller.assignedPlayer.Data.GeneralData.PlayFabMasterId == info.MasterId);
-
-                if (clone == null) continue;
-
-                string voicePath = Path.Combine(currentReplay.Header.VoiceFolder, info.FileName);
-
-                var clip = ReplayVoices.LoadVoiceClipFromFile(voicePath);
-                
-                if (clip == null) return;
-                    
-                clone.VoiceTracks.Add(new Clone.VoiceTrack
+                if (currentReplay.Header.VoiceTrackInfos != null)
                 {
-                    StartTime = info.StartTime,
-                    Clip = clip
-                });
+                    foreach (var info in currentReplay.Header.VoiceTrackInfos)
+                    {
+                        var clone = PlaybackPlayers.FirstOrDefault(p =>
+                            p.Controller.assignedPlayer.Data.GeneralData.PlayFabMasterId == info.MasterId);
+
+                        if (clone == null) continue;
+
+                        string voicePath = Path.Combine(currentReplay.Header.VoiceFolder, info.FileName);
+
+                        var clip = ReplayVoices.LoadVoiceClipFromFile(voicePath);
+
+                        if (clip == null) continue;
+
+                        clone.VoiceTracks.Add(new Clone.VoiceTrack
+                        {
+                            StartTime = info.StartTime, Clip = clip
+                        });
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Main.ReplayError($"Voice laoding failed: {e}");
             }
             
             if (currentReplay.Header.Scene == "Gym")
