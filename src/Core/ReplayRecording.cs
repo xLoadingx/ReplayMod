@@ -590,38 +590,46 @@ public class ReplayRecording
 
     public int RegisterPlayer(Player player)
     {
-        var id = player.Data.GeneralData.PlayFabMasterId;
-
-        int index;
-        if (PlayerSlots.TryGetValue(id, out var slot))
-        {
-            if (Utilities.IsReplayClone(player.Controller))
-            {
-                int newSlot = RecordedPlayers.Count;
-                RecordedPlayers.Add(player);
-                
-                Main.DebugLog($"[Recording] Replay clone detected | Id: {id} | Slot: {newSlot}");
-
-                return newSlot;
-            }
-            
-            RecordedPlayers[slot] = player;
-            index = slot;
-        }
-        else
+        Main.DebugLog($"Register Player | ID: {player.Data.GeneralData.PlayFabMasterId} | Instance: {player.Controller.GetInstanceID()} | IsClone: {Utilities.IsReplayClone(player.Controller)}");
+        
+        if (Utilities.IsReplayClone(player.Controller))
         {
             int newSlot = RecordedPlayers.Count;
-            PlayerSlots[id] = newSlot;
-            RecordedPlayers.Add(player);
-
-            index = newSlot;
+            AddPlayer(player);
             
-            Main.DebugLog($"[Recording] New Player Slot | Id: {id} | Slot: {index}");
+            Main.DebugLog($"Replay Clone ({player.Data.GeneralData.PlayFabMasterId}) | New Slot: {newSlot} (Total: {RecordedPlayers.Count})");
+            
+            return newSlot;
         }
-        
-        MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player, index));
 
-        return index;
+        var id = player.Data.GeneralData.PlayFabMasterId;
+
+        if (PlayerSlots.TryGetValue(id, out var slot))
+        {
+            RecordedPlayers[slot] = player;
+            
+            Main.DebugLog($"Existing Player Override ({id}) | Slot: {slot} (Total: {RecordedPlayers.Count})");
+            
+            return slot;
+        }
+
+        int newSlotReal = RecordedPlayers.Count;
+        PlayerSlots[id] = newSlotReal;
+        AddPlayer(player);
+        
+        Main.DebugLog($"New Player ({id}) | Slot: {newSlotReal} (Total: {RecordedPlayers.Count})");
+
+        return newSlotReal;
+    }
+
+    int AddPlayer(Player player)
+    {
+        int slot = RecordedPlayers.Count;
+
+        RecordedPlayers.Add(player);
+        MelonCoroutines.Start(Patches.Patch_PlayerVisuals_ApplyPlayerVisuals.VisualDataDelay(player, slot));
+
+        return slot;
     }
 
     public Marker AddMarker(string name, Color color)
@@ -696,7 +704,8 @@ public class ReplayRecording
         Events.Clear();
         recordingMarkers.Clear();
 
-        CurrentRecordingState = RecordingState.Recording;
+        if (CurrentRecordingState != RecordingState.Saving)
+            CurrentRecordingState = RecordingState.Recording;
         
         if (Main.instance.EnableHaptics.Value)
             Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);

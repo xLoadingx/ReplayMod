@@ -3,9 +3,14 @@
 - Added Melon Color back (red)
 - Made recordings only serialize after scene loads to prevent errors
 - Made players not able to be null in infos anymore (hopefully)
-- Added voice recording and playback pipeline
+- Added voice recording and playback pipeline (wip)
 - Fixed corrupted files in the explorer making the game freak out and break
 - Made favorite icon disappear correctly if it's a folder entry
+- Added more transition states for recording icon
+- Made recording icon more persistent over scene loads
+- Fixed recorded replay clones not showing up in recordings
+- Removed all ModUI and ModUI+ references
+- Fixed crystal erroring when holding grip between scene loads
 
 # 1.1.1
 - Me when I forget to add the dependencies
