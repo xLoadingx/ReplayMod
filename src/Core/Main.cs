@@ -200,6 +200,7 @@ public class Main : MelonMod
         CloseHandsOnPose = recordingFolder.CreateEntry("Close_Hands_On_Pose", true, "Close Hands On Pose", "Closes the hands of a clone when they do a pose.");
 
         var voiceFolder = MelonPreferences.CreateCategory("Voices");
+        voiceFolder.SetFilePath(configPath);
         
         VoiceRecording = voiceFolder.CreateEntry("Voice_Recording", true, "Record In-Game Voices", "Toggles whether in-game voices are recorded into replays.");
         voiceBitrate = voiceFolder.CreateEntry("Voice_Bitrate", 30, "Voice Bitrate", "Determines what bitrate voices are recorded in.\nDefault: 30");
