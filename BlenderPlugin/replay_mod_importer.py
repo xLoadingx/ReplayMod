@@ -212,6 +212,8 @@ class ChunkType(IntEnum):
     StructureState = 1
     PedestalState = 2
     Event = 3
+    ScenePropState = 4
+    Extension = 250
 
 @dataclass
 class Frame:
@@ -224,22 +226,25 @@ class Frame:
 @dataclass
 class ReplayHeader:
     Title: str
-    CustomMap: str
     Version: str
     Scene: str
     Date: str
     Duration: float
     FrameCount: int
     PedestalCount: int
+    ScenePropCount: int
+    isFavorited: bool
     MarkerCount: int
     AvgPing: int
     MaxPing: int
     MinPing: int
     TargetFPS: int
+    SceneProps: list
     Players: list
     Structures: list
     Markers: list
     Guid: str
+    CustomMap: str = ""
 
 @dataclass
 class ReplayInfo:
@@ -348,6 +353,41 @@ class ReplayReader:
             br.seek(field_end)
 
         return state
+    
+    def _read_player_chunk(self, br, chunk_len, base_state: PlayerState) -> PlayerState:
+        chunk_end = br.tell() + chunk_len
+        state = copy.deepcopy(base_state)
+
+        while br.tell() < chunk_end:
+            field_id_raw = struct.unpack("<B", br.read(1))[0]
+            field_size = struct.unpack("<H", br.read(2))[0]
+            field_end = br.tell() + field_size
+
+            try:
+                field_id = PlayerField(field_id_raw)
+            except ValueError:
+                br.seek(field_end)
+                continue
+                
+            if field_id == PlayerField.VRRigPos:
+                state.VRRigPos = read_vector3(br)
+            
+            elif field_id == PlayerField.VRRigRot:
+                state.VRRigRot = read_quaternion(br)
+                
+            elif field_id == PlayerField.HeadPos:
+                state.HeadPos = read_vector3(br)
+            
+            elif field_id == PlayerField.HeadRot:
+                state.HeadRot = read_quaternion(br)
+                
+            else:
+                br.seek(field_end)
+                print(f"Chunk: unknown={br.tell()}")
+                
+            br.seek(field_end)
+            
+        return state
 
     def _read_frames(self, br):
         frames = []
@@ -377,6 +417,7 @@ class ReplayReader:
             print(f"\nFrame {frame_index}: time={time}, entries={entry_count}, size={frame_size}")
 
             frame_structures = [copy.deepcopy(s) for s in last_structures]
+            frame_players = [copy.deepcopy(p) for p in last_players]
 
             for _ in range(entry_count):
                 chunk_type_raw, index, chunk_len = self._read_chunk_header(br)
@@ -391,6 +432,16 @@ class ReplayReader:
 
                     frame_structures[index] = new_state
                     last_structures[index] = new_state
+                    
+                elif chunk_type == ChunkType.PlayerState:
+                    new_state = self._read_player_chunk(
+                        br,
+                        chunk_len,
+                        last_players[index]
+                    )
+                    
+                    frame_players[index] = new_state
+                    last_players[index] = new_state
 
                 else:
                     br.seek(br.tell() + chunk_len)

@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 
-namespace ReplayMod;
+namespace ReplayMod.Replay.Serialization;
 
 public static class BinaryExtensions
 {

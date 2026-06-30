@@ -23,7 +23,7 @@ public static class ReplayFiles
     public static string replayFolder = $@"{MelonEnvironment.UserDataDirectory}\ReplayMod";
     
     public static ReplayTable table;
-    public static bool metadataHidden = false;
+    public static bool metadataHidden;
 
     private static object metadataHeightRoutine;
     private static object metadataScaleRoutine;
@@ -38,7 +38,7 @@ public static class ReplayFiles
     public static Texture2D folderIcon;
     public static Texture2D replayIcon;
 
-    public static ReplaySerializer.ReplayHeader currentHeader = null;
+    public static ReplaySerializer.ReplayHeader currentHeader;
 
     
     // ----- Init -----
@@ -309,6 +309,8 @@ public static class ReplayFiles
 
             explorer.Refresh();
             RefreshUI();
+            
+            ReplayAPI.ReplaySelectedInternal(null, null);
         }
         else
         {

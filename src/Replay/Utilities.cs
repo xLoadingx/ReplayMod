@@ -15,9 +15,11 @@ using ReplayMod.Core;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using UnityEngine;
+using UnityEngine.VFX;
 using Random = UnityEngine.Random;
 using static UnityEngine.Mathf;
 using Main = ReplayMod.Core.Main;
+using Object = UnityEngine.Object;
 
 namespace ReplayMod.Replay;
 
@@ -107,13 +109,13 @@ public static class Utilities
             return null;
         }
 
+        if (string.IsNullOrEmpty(mapName))
+            return null;
+
         GameObject map = customMultiplayerMaps.transform.Find(mapName)?.gameObject;
 
         if (map == null)
-        {
-            Main.ReplayError($"Could not find the custom map '{mapName}.");
             return null;
-        }
 
         return map;
     }
@@ -156,7 +158,7 @@ public static class Utilities
     
     public static IEnumerable<GameObject> EnumerateMatchPedestals()
     {
-        return GameObject.FindObjectsOfType<Pedestal>(true).Where(p => p.gameObject.scene.buildIndex != -1).Select(p => p.gameObject);
+        return Object.FindObjectsOfType<Pedestal>(true).Where(p => p.gameObject.scene.buildIndex != -1).Select(p => p.gameObject);
     }
     
     public static IEnumerator LoadMap(int index, float fadeDuration = 2f, Action onLoaded = null, float onLoadedDelay = 0.01f)
@@ -225,7 +227,7 @@ public static class Utilities
     public static Marker[] AddMarkers(ReplaySerializer.ReplayHeader header, MeshRenderer timelineRenderer, bool hideMarkers = true)
     {
         foreach (var marker in timelineRenderer.transform.GetComponentsInChildren<ReplayPlayback.ReplayTag>())
-            GameObject.Destroy(marker.gameObject);
+            Object.Destroy(marker.gameObject);
         
         if (header.Markers == null)
             return null;
@@ -235,7 +237,7 @@ public static class Utilities
         foreach (var marker in markers)
         {
             Vector3 position = GetPositionOverMesh(marker.time, header.Duration, timelineRenderer);
-            GameObject markerObj = GameObject.Instantiate(ReplayPlaybackControls.markerPrefab, timelineRenderer.transform);
+            GameObject markerObj = Object.Instantiate(ReplayPlaybackControls.markerPrefab, timelineRenderer.transform);
 
             if (!hideMarkers)
                 markerObj.layer = LayerMask.NameToLayer("Default");
@@ -385,7 +387,9 @@ public class DeleteAfterSeconds : MonoBehaviour
 
     public void Update()
     {
-        if (Abs(Main.Playback.elapsedPlaybackTime - spawnTime) >= destroyTime)
+        float age = Main.Playback.elapsedPlaybackTime - spawnTime;
+
+        if (age < 0f || age >= destroyTime)
             Destroy(gameObject);
     }
 }

@@ -67,7 +67,7 @@ public class ReplayFormatting
         var duration = TimeSpan.FromSeconds(header.Duration);
         
         string GetPlayer(int index) =>
-            header?.Players != null &&
+            header.Players != null &&
             index >= 0 &&
             index < header.Players.Length &&
             header.Players[index] != null

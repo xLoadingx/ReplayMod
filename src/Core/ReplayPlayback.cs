@@ -24,12 +24,13 @@ using ReplayMod.Replay.UI;
 using RumbleModdingAPI.RMAPI;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
-using UnityEngine.Networking;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
 using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using EventType = ReplayMod.Replay.Serialization.EventType;
+using Object = UnityEngine.Object;
 using PlayerState = ReplayMod.Replay.Serialization.PlayerState;
+using Random = UnityEngine.Random;
 using Utilities = ReplayMod.Replay.Utilities;
 
 namespace ReplayMod.Core;
@@ -52,16 +53,16 @@ public class ReplayPlayback
     
     // Replay Control
     public ReplayInfo currentReplay;
-    public bool isPlaying = false;
+    public bool isPlaying;
     public float playbackSpeed = 1f;
     
-    public float elapsedPlaybackTime = 0f;
-    public int currentPlaybackFrame = 0;
+    public float elapsedPlaybackTime;
+    public int currentPlaybackFrame;
 
     public static bool isReplayScene;
 
     public bool hasPaused;
-    public bool isPaused = false;
+    public bool isPaused;
     public float previousPlaybackSpeed = 1f;
     
     // Roots
@@ -76,8 +77,8 @@ public class ReplayPlayback
     public GameObject[] PlaybackStructures;
     public static HashSet<Structure> HiddenStructures = new();
     public PlaybackStructureState[] playbackStructureStates;
-    public bool disableBaseStructureSystems = true;
-    
+    public const bool disableBaseStructureSystems = true;
+
     // Players
     public Clone[] PlaybackPlayers;
     public PlaybackPlayerState[] playbackPlayerStates;
@@ -162,7 +163,7 @@ public class ReplayPlayback
         
         // ------ Structures ------
         
-        if (replayStructures != null) GameObject.Destroy(replayStructures);
+        if (replayStructures != null) Object.Destroy(replayStructures);
         HiddenStructures.Clear();
         PlaybackStructures = null;
         foreach (var structure in CombatManager.instance.structures)
@@ -173,7 +174,7 @@ public class ReplayPlayback
             HiddenStructures.Add(structure);
         }
 
-        foreach (var fruit in GameObject.FindObjectsOfType<Fruit>())
+        foreach (var fruit in Object.FindObjectsOfType<Fruit>())
         {
             fruit.GetComponent<Collider>().enabled = false;
             fruit.GetComponent<Renderer>().enabled = false;
@@ -202,15 +203,21 @@ public class ReplayPlayback
                 structure.indistructable = true;
                 structure.onBecameFreeAudio = null;
                 structure.onBecameGroundedAudio = null;
-                structure.structureID = headerStructure.structureId;
 
                 foreach (var col in structure.GetComponentsInChildren<Collider>())
                     col.enabled = false;
-            
-                GameObject.Destroy(PlaybackStructures[i].GetComponent<Rigidbody>());
+
+                var rb = PlaybackStructures[i].GetComponent<Rigidbody>();
+
+                if (rb != null)
+                {
+                    rb.isKinematic = true;
+                    rb.useGravity = false;
+                    rb.detectCollisions = false;
+                }
                 
                 if (PlaybackStructures[i].TryGetComponent<NetworkGameObject>(out var networkGameObject))
-                    GameObject.Destroy(networkGameObject);
+                    Object.Destroy(networkGameObject);
             }
             
             if (currentReplay.Header.Structures[i].Type == StructureType.Target)
@@ -288,19 +295,7 @@ public class ReplayPlayback
             playbackPlayerStates = new PlaybackPlayerState[PlaybackPlayers.Length];
 
             for (int i = 0; i < PlaybackPlayers.Length; i++)
-            {
-                if (PlaybackPlayers[i] == null) continue;
-                
-                var shiftstones = PlaybackPlayers[i].Controller.PlayerShiftstones.GetCurrentShiftStoneConfiguration();
-                
-                playbackPlayerStates[i] = new PlaybackPlayerState
-                {
-                    playerMeasurement = PlaybackPlayers[i].Controller.assignedPlayer.Data.PlayerMeasurement,
-                    leftShiftstone = shiftstones[0],
-                    rightShiftstone = shiftstones[1],
-                    visualData = PlaybackPlayers[i].Controller.assignedPlayer.Data.VisualData.ToPlayfabDataString()
-                };
-            }
+                playbackPlayerStates[i] = new PlaybackPlayerState();
         
             ReorderPlayers();
 
@@ -410,10 +405,10 @@ public class ReplayPlayback
             comp.indistructable = false;
             
             if (comp.currentFrictionVFX != null)
-                GameObject.Destroy(comp.currentFrictionVFX.gameObject);
+                Object.Destroy(comp.currentFrictionVFX.gameObject);
 
             foreach (var effect in structure.GetComponentsInChildren<VisualEffect>())
-                GameObject.Destroy(effect);
+                Object.Destroy(effect);
         }
 
         foreach (var structure in HiddenStructures)
@@ -422,7 +417,7 @@ public class ReplayPlayback
                 structure.gameObject.SetActive(true);
         }
 
-        foreach (var fruit in GameObject.FindObjectsOfType<Fruit>(true))
+        foreach (var fruit in Object.FindObjectsOfType<Fruit>(true))
         {
             fruit.GetComponent<Collider>().enabled = true;
             fruit.GetComponent<Renderer>().enabled = true;
@@ -431,7 +426,7 @@ public class ReplayPlayback
         HiddenStructures.Clear();
         
         if (replayStructures != null)
-            GameObject.Destroy(replayStructures);
+            Object.Destroy(replayStructures);
 
         foreach (var player in PlaybackPlayers)
         {
@@ -444,16 +439,16 @@ public class ReplayPlayback
         }
         
         if (replayPlayers != null)
-            GameObject.Destroy(replayPlayers);
+            Object.Destroy(replayPlayers);
 
         if (pedestalsParent != null)
         {
             for (int i = pedestalsParent.transform.childCount - 1; i >= 0; i--)
             {
                 var pedestal = pedestalsParent.transform.GetChild(i);
-                GameObject.Destroy(pedestal.gameObject);
+                Object.Destroy(pedestal.gameObject);
             }
-            GameObject.Destroy(pedestalsParent);
+            Object.Destroy(pedestalsParent);
         }
 
         if (scenePropsParent != null)
@@ -461,13 +456,13 @@ public class ReplayPlayback
             for (int i = scenePropsParent.transform.childCount - 1; i >= 0; i--)
             {
                 var sceneProp =  scenePropsParent.transform.GetChild(i);
-                GameObject.Destroy(sceneProp.gameObject);
+                Object.Destroy(sceneProp.gameObject);
             }
-            GameObject.Destroy(scenePropsParent);
+            Object.Destroy(scenePropsParent);
         }
 
         if (ReplayRoot != null)
-            GameObject.Destroy(ReplayRoot);
+            Object.Destroy(ReplayRoot);
         
         ReplaySettings.povButton.SetActive(false);
         ReplaySettings.hideLocalPlayerToggle.SetActive(false);
@@ -527,9 +522,9 @@ public class ReplayPlayback
     {
         int count = currentReplay.Header.Players.Length;
         PlaybackPlayers = new Clone[count];
-
+    
         var frame0 = currentReplay.Frames[0];
-
+    
         // Non-greedy pooling algorithm
         var chosen = new Clone[count];
         var used = new HashSet<Clone>();
@@ -539,7 +534,7 @@ public class ReplayPlayback
         {
             var visual = frame0.Players[i]?.visualData;
             if (visual == null) continue;
-
+    
             foreach (var c in playerPool)
             {
                 if (!used.Contains(c) && c.Controller.assignedPlayer.Data.VisualData.ToPlayfabDataString() == visual)
@@ -550,13 +545,13 @@ public class ReplayPlayback
                 }
             }
         }
-
+    
         // Fill the remaining players who
         // didn't have an exact match in visuals
         for (int i = 0; i < count; i++)
         {
             if (chosen[i] != null) continue;
-
+    
             foreach (var c in playerPool)
             {
                 if (!used.Contains(c))
@@ -572,36 +567,81 @@ public class ReplayPlayback
         for (int i = 0; i < count; i++)
         {
             var pInfo = currentReplay.Header.Players[i];
-
+    
             if (pInfo == null)
             {
                 Main.DebugLog($"Header.Players[{i}] is null.");
                 continue;
             }
-
+    
             Clone temp = chosen[i];
-
+    
             // Build new players if count
             // is higher than the amount of pooled players
             if (temp == null)
             {
                 MelonCoroutines.Start(BuildClone(pInfo, c => temp = c));
-
+    
                 while (temp == null)
                     yield return null;
-
+    
                 playerPool.Add(temp);
+            }
+
+            BindCloneToPlayerInfo(temp, pInfo);
+
+            temp.VoiceTracks.Clear();
+            temp.currentTrack = null;
+
+            if (temp.VoiceSource != null)
+            {
+                temp.VoiceSource.Stop();
+                temp.VoiceSource.clip = null;
+                temp.VoiceSource.time = 0f;
+                temp.VoiceSource.pitch = 1f;
             }
             
             PlayerManager.instance.AllPlayers.Add(temp.Controller.assignedPlayer);
-
+    
             temp.gameObject.SetActive(true);
             PlaybackPlayers[i] = temp;
             temp.Controller.transform.SetParent(replayPlayers.transform);
         }
-
+    
         done?.Invoke();
     }
+    
+    // private IEnumerator SpawnClones(Action done = null)
+    // {
+    //     int count = currentReplay.Header.Players.Length;
+    //     PlaybackPlayers = new Clone[count];
+    //
+    //     for (int i = 0; i < count; i++)
+    //     {
+    //         var pInfo = currentReplay.Header.Players[i];
+    //
+    //         if (pInfo == null)
+    //         {
+    //             Main.DebugLog($"Header.Players[{i}] is null.");
+    //             continue;
+    //         }
+    //
+    //         Clone temp = null;
+    //
+    //         MelonCoroutines.Start(BuildClone(pInfo, c => temp = c));
+    //
+    //         while (temp == null)
+    //             yield return null;
+    //
+    //         PlayerManager.instance.AllPlayers.Add(temp.Controller.assignedPlayer);
+    //
+    //         temp.gameObject.SetActive(true);
+    //         PlaybackPlayers[i] = temp;
+    //         temp.Controller.transform.SetParent(replayPlayers.transform);
+    //     }
+    //
+    //     done?.Invoke();
+    // }
     
     public static IEnumerator BuildClone(PlayerInfo pInfo, Action<Clone> callback, Vector3 initialPosition = default)
     {
@@ -646,10 +686,10 @@ public class ReplayPlayback
         GameObject RHand = Overall.transform.GetChild(2).gameObject;
         GameObject Head = Overall.transform.GetChild(0).GetChild(0).gameObject;
 
-        GameObject.Destroy(Overall.GetComponent<NetworkGameObject>());
-        GameObject.Destroy(Overall.GetComponent<PlayerSessionStateSystem>());
+        Object.Destroy(Overall.GetComponent<NetworkGameObject>());
+        Object.Destroy(Overall.GetComponent<PlayerSessionStateSystem>());
         newPlayer.Controller.PlayerAnimator.animator.SetBool(-414412114, false);
-        GameObject.Destroy(Overall.GetComponent<Rigidbody>());
+        Object.Destroy(Overall.GetComponent<Rigidbody>());
         
         var localTransform = Main.LocalPlayer.Controller.transform;
         newPlayer.Controller.transform.position = localTransform.position;
@@ -680,6 +720,7 @@ public class ReplayPlayback
 
         newPlayer.Controller.PlayerNameTag.gameObject.SetActive(Main.instance.ToggleNameplate.Value);
         newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(Main.instance.ToggleHealthBar.Value);
+        newPlayer.Controller.gameObject.GetComponentInChildren<PlayerUIBar>().InitializeMaterials(newPlayer.Controller, PlayerUIBar.UIBarMode.Health);
 
         clone.VRRig = Overall;
         clone.LeftHand = LHand;
@@ -691,6 +732,37 @@ public class ReplayPlayback
         body.transform.rotation = Quaternion.identity;
 
         callback?.Invoke(clone);
+    }
+
+    private static void BindCloneToPlayerInfo(Clone clone, PlayerInfo pInfo)
+    {
+        pInfo.Name = string.IsNullOrEmpty(pInfo.Name)
+            ? $"Player_{pInfo.MasterId}"
+            : pInfo.Name;
+        
+        pInfo.EquippedShiftStones ??= new short[] { -1, -1 };
+
+        var player = clone.Controller.assignedPlayer;
+        var data = player.Data;
+
+        data.GeneralData.PlayFabMasterId = pInfo.MasterId;
+        data.GeneralData.PlayFabTitleId = Guid.NewGuid().ToString();
+        data.GeneralData.BattlePoints = pInfo.BattlePoints;
+        data.GeneralData.PublicUsername = pInfo.Name;
+
+        data.PlayerMeasurement = pInfo.Measurement.Length != 0
+            ? pInfo.Measurement
+            : Main.LocalPlayer.Data.PlayerMeasurement;
+
+        var shiftstones = new Il2CppStructArray<short>(2);
+        shiftstones[0] = pInfo.EquippedShiftStones.Length > 0 ? pInfo.EquippedShiftStones[0] : (short)-1;
+        shiftstones[1] = pInfo.EquippedShiftStones.Length > 1 ? pInfo.EquippedShiftStones[1] : (short)-1;
+
+        data.EquipedShiftStones = shiftstones;
+
+        clone.Controller.gameObject.name = $"Player_{pInfo.MasterId}";
+        
+        clone.Controller.PlayerNameTag.RefreshNameTag();
     }
     
     public void ApplyInterpolatedFrame(int frameIndex, float t)
@@ -740,7 +812,7 @@ public class ReplayPlayback
                 } catch { }
                 
                 if (structureComp.currentFrictionVFX != null)
-                    GameObject.Destroy(structureComp.currentFrictionVFX.gameObject);
+                    Object.Destroy(structureComp.currentFrictionVFX.gameObject);
             }
             
             // Structure Spawned
@@ -758,7 +830,7 @@ public class ReplayPlayback
                     AudioManager.instance.Play(audioCall, frames[frameIndex + 2].Structures[i].position);
                 
                 foreach (var visualEffect in playbackStructure.GetComponentsInChildren<PooledVisualEffect>())
-                    GameObject.Destroy(visualEffect.gameObject);
+                    Object.Destroy(visualEffect.gameObject);
                 
                 structureComp.OnFetchFromPool();
             }
@@ -786,19 +858,15 @@ public class ReplayPlayback
                 {
                     if (isParried)
                     {
-                        var pool = poolManager.GetPool("Parry_VFX");
-                        var effect = GameObject.Instantiate(pool.poolItem.gameObject, VFXParent.transform);
-
-                        effect.transform.localPosition = sa.position;
-                        effect.transform.localRotation = Quaternion.identity;
-                        var visualEffect = effect.GetComponent<VisualEffect>();
-                        visualEffect.playRate = Abs(playbackSpeed);
-                        effect.GetComponent<PooledVisualEffect>().parameterCollection.Apply(visualEffect, structureComp);
-                        effect.GetComponent<VisualEffect>().Play();
-                        effect.AddComponent<DeleteAfterSeconds>();
-                        var tag = effect.AddComponent<ReplayTag>();
-                        tag.attachedStructure = structureComp;
-                        tag.Type = "StructureParry";
+                        SpawnVFX(
+                            "Parry_VFX",
+                            VFXParent.transform,
+                            sa.position,
+                            Quaternion.identity,
+                            "StructureParry",
+                            structureComp,
+                            true
+                        );
 
                         AudioManager.instance.Play(ReplayCache.SFX["Call_Modifier_Parry"], sa.position);
                     }
@@ -807,7 +875,7 @@ public class ReplayPlayback
                         var tag = VFXParent.GetComponentsInChildren<ReplayTag>().FirstOrDefault(tag => tag.Type == "StructureParry" && tag.attachedStructure == structureComp);
                     
                         if (tag != null)
-                            GameObject.Destroy(tag.gameObject);
+                            Object.Destroy(tag.gameObject);
                     }
                 }
             }
@@ -821,17 +889,14 @@ public class ReplayPlayback
 
             void SpawnHoldVFX(string hand)
             {
-                var pool = poolManager.GetPool("Hold_VFX");
-                var effect = GameObject.Instantiate(pool.poolItem.gameObject, playbackStructure.transform);
-
-                effect.transform.localPosition = Vector3.zero;
-                effect.transform.localRotation = Quaternion.identity;
-                var visualEffect = effect.GetComponent<VisualEffect>();
-                visualEffect.playRate = Abs(playbackSpeed);
-                effect.GetComponent<PooledVisualEffect>().parameterCollection.Apply(visualEffect, structureComp);
-                effect.GetComponent<VisualEffect>().Play();
-                var tag = effect.AddComponent<ReplayTag>();
-                tag.Type = "StructureHold_" + hand;
+                SpawnVFX(
+                    "Hold_VFX",
+                    playbackStructure.transform,
+                    Vector3.zero,
+                    Quaternion.identity,
+                    "StructureHold_" + hand,
+                    structureComp
+                );
 
                 AudioManager.instance.Play(ReplayCache.SFX["Call_Modifier_Hold"], sa.position);
             }
@@ -852,7 +917,7 @@ public class ReplayPlayback
 
                     if (vfx.Type == "StructureHold_" + hand && vfx.transform.parent == playbackStructure.transform)
                     {
-                        GameObject.Destroy(vfx.gameObject);
+                        Object.Destroy(vfx.gameObject);
                         break;
                     }
                 }
@@ -864,17 +929,14 @@ public class ReplayPlayback
             // Flick started
             if (!state.isFlicked && sb.isFlicked)
             {
-                var pool = poolManager.GetPool("Flick_VFX");
-                var effect = GameObject.Instantiate(pool.poolItem.gameObject, playbackStructure.transform);
-                
-                effect.transform.localPosition = Vector3.zero;
-                effect.transform.localRotation = Quaternion.identity;
-                var visualEffect = effect.GetComponent<VisualEffect>();
-                visualEffect.playRate = Abs(playbackSpeed);
-                effect.GetComponent<PooledVisualEffect>().parameterCollection.Apply(visualEffect, structureComp);
-                effect.GetComponent<VisualEffect>().Play();
-                var tag = effect.AddComponent<ReplayTag>();
-                tag.Type = "StructureFlick";
+                SpawnVFX(
+                    "Flick_VFX",
+                    playbackStructure.transform,
+                    Vector3.zero,
+                    Quaternion.identity,
+                    "StructureFlick",
+                    structureComp
+                );
 
                 AudioManager.instance.Play(ReplayCache.SFX["Call_Modifier_Flick"], sa.position);
             }
@@ -889,7 +951,7 @@ public class ReplayPlayback
 
                     if (vfx.name.Contains("Flick_VFX") && vfx.transform.parent == playbackStructure.transform)
                     {
-                        GameObject.Destroy(vfx.gameObject);
+                        Object.Destroy(vfx.gameObject);
                         break;
                     }
                 }
@@ -898,7 +960,7 @@ public class ReplayPlayback
             state.isFlicked = Utilities.HasVFXType("StructureFlick", playbackStructure.transform);
 
             // ------------
-
+            
             if (sa.active && sb.active)
             {
                 Vector3 pos = Vector3.Lerp(sa.position, sb.position, t);
@@ -915,8 +977,31 @@ public class ReplayPlayback
             {
                 vfx.playRate = Abs(playbackSpeed);
 
+                if (vfx.GetComponent<FrameControlledVFX>() == null)
+                    vfx.gameObject.AddComponent<FrameControlledVFX>();
+
                 if (vfx.name.Contains("ExplodeStatus_VFX"))
                     vfx.transform.localScale = Vector3.one;
+            }
+            
+            var frictionController = playbackStructure.GetComponent<FrictionController>();
+
+            if (frictionController == null)
+                frictionController = playbackStructure.AddComponent<FrictionController>();
+            
+            Vector3 velocity = (sb.position - sa.position) / (b.Time - a.Time);
+            velocity.y = 0f; // ignores vertical movement as structures only move up whilst grounded when spawning
+
+            bool grounded = structureComp.currentPhysicsState is Structure.PhysicsState.StableGrounded 
+                or Structure.PhysicsState.FreeGrounded;
+
+            if (sa.active && sb.active)
+            {
+                frictionController.Evaluate(
+                    Time.deltaTime * playbackSpeed, // kinda bad, but too much of an edge case to care about
+                    grounded,
+                    velocity
+                );
             }
             
             if (structureComp.currentFrictionVFX != null)
@@ -1022,13 +1107,16 @@ public class ReplayPlayback
                 }
             }
 
-            if (state.leftShiftstone != pb.leftShiftstone)
+            var shiftstones = playbackPlayer.Controller.PlayerShiftstones.GetCurrentShiftStoneConfiguration();
+            int currentLeft = shiftstones.Count > 0 ? shiftstones[0] : -1;
+            int currentRight = shiftstones.Count > 1 ? shiftstones[1] : -1;
+            if (currentLeft != pb.leftShiftstone)
             {
                 state.leftShiftstone = pb.leftShiftstone;
                 ApplyShiftstone(playbackPlayer.Controller, 0, pb.leftShiftstone);
             }
             
-            if (state.rightShiftstone != pb.rightShiftstone)
+            if (currentRight != pb.rightShiftstone)
             {
                 state.rightShiftstone = pb.rightShiftstone;
                 ApplyShiftstone(playbackPlayer.Controller, 1, pb.rightShiftstone);
@@ -1037,6 +1125,8 @@ public class ReplayPlayback
             void ApplyShiftstone(PlayerController controller, int socketIndex, int shiftstoneIndex)
             {
                 var shiftstoneSystem = controller.PlayerShiftstones;
+
+                shiftstoneSystem.RemoveShiftStone(socketIndex, false);
                 
                 PooledMonoBehaviour pooledObject = shiftstoneIndex switch
                 {
@@ -1081,12 +1171,15 @@ public class ReplayPlayback
                 rockCam.transform.SetLocalPositionAndRotation(pos, rot);
             }
 
-            if (state.playerMeasurement.ArmSpan != pb.ArmSpan || state.playerMeasurement.Length != pb.Length)
+            var current = playbackPlayer.Controller.assignedPlayer.Data.PlayerMeasurement;
+            if (!Approximately(state.playerMeasurement.ArmSpan, pb.ArmSpan) || !Approximately(state.playerMeasurement.Length, pb.Length) ||
+                !Approximately(current.ArmSpan, pb.ArmSpan) || !Approximately(current.Length, pb.Length))
             {
                 var measurement = new PlayerMeasurement(pb.Length, pb.ArmSpan);
                 state.playerMeasurement = measurement;
 
                 playbackPlayer.Controller.PlayerScaling.ScaleController(measurement);
+                playbackPlayer.Controller.assignedPlayer.Data.PlayerMeasurement = measurement;
 
                 UpdateReplayCameraPOV(povPlayer ?? Main.LocalPlayer, ReplaySettings.hideLocalPlayer);
 
@@ -1095,24 +1188,26 @@ public class ReplayPlayback
                 );
             }
 
-            if (!string.Equals(state.visualData, pb.visualData) && !string.IsNullOrEmpty(pb.visualData))
+            if ((!string.Equals(state.visualData, pb.visualData) && !string.IsNullOrEmpty(pb.visualData)) || playbackPlayer.Controller.PlayerVisuals.renderer.sharedMesh == null)
             {
-                var newVisualData = PlayerVisualData.FromPlayfabDataString(pb.visualData);
+                if (pb.visualData != null)
+                {
+                    var newVisualData = PlayerVisualData.FromPlayfabDataString(pb.visualData);
+                    state.visualData = pb.visualData;
+                    
+                    playbackPlayer.Controller.assignedPlayer.Data.VisualData = newVisualData;
+                    playbackPlayer.Controller.Initialize(playbackPlayer.Controller.assignedPlayer);
 
-                playbackPlayer.Controller.assignedPlayer.Data.VisualData = newVisualData;
-                playbackPlayer.Controller.Initialize(playbackPlayer.Controller.assignedPlayer);
-
-                playbackPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
-
-                state.visualData = pb.visualData;
+                    playbackPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
+                }
             }
             
             playbackPlayer.Controller.PlayerNameTag.gameObject.SetActive(
-                Main.instance.ToggleNameplate.Value
+                Main.instance.ToggleNameplate.Value && povPlayer != playbackPlayer.Controller.assignedPlayer
             );
             
             playbackPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(
-                Main.instance.ToggleHealthBar.Value
+                Main.instance.ToggleHealthBar.Value && povPlayer != playbackPlayer.Controller.assignedPlayer
             );
             
             if (state.active != pb.active)
@@ -1135,7 +1230,12 @@ public class ReplayPlayback
             playbackPlayer.ApplyInterpolatedPose(pa, pb, t);
 
             foreach (var vfx in playbackPlayer.GetComponentsInChildren<VisualEffect>())
+            {
                 vfx.playRate = Abs(playbackSpeed);
+
+                if (vfx.GetComponent<FrameControlledVFX>() == null)
+                    vfx.gameObject.AddComponent<FrameControlledVFX>();
+            }
         }
 
         // ------ Pedestals ------
@@ -1232,6 +1332,50 @@ public class ReplayPlayback
             ext.OnPlaybackFrame(a, b);
         }
     }
+
+    private GameObject SpawnVFX(
+        string poolName,
+        Transform parent,
+        Vector3 localPosition,
+        Quaternion localRotation,
+        string tagType,
+        Structure structure = null,
+        bool deleteAfterSeconds = false
+    )
+    {
+        var pool = PoolManager.instance.GetPool(poolName);
+
+        if (pool == null)
+            return null;
+
+        var effect = Object.Instantiate(pool.poolItem.gameObject, parent);
+
+        effect.transform.localPosition = localPosition;
+        effect.transform.localRotation = localRotation;
+
+        var visualEffect = effect.GetComponent<VisualEffect>();
+        visualEffect.playRate = Abs(playbackSpeed);
+        visualEffect.resetSeedOnPlay = false;
+        visualEffect.startSeed = (uint)Random.Range(1, int.MaxValue);
+
+        var pooledVisualEffect = effect.GetComponent<PooledVisualEffect>();
+        if (pooledVisualEffect != null)
+        {
+            if (structure != null)
+                pooledVisualEffect.UpdateParameterBasedOnStructure(structure);
+        }
+        
+        var tag = effect.AddComponent<ReplayTag>();
+        tag.Type = tagType;
+        tag.attachedStructure = structure;
+
+        if (deleteAfterSeconds)
+            effect.AddComponent<DeleteAfterSeconds>();
+
+        effect.AddComponent<FrameControlledVFX>().seed = visualEffect.startSeed;
+
+        return effect;
+    }
     
     public GameObject SpawnFX(EventChunk fx)
     {
@@ -1255,43 +1399,55 @@ public class ReplayPlayback
 
         GameObject vfxObject = null;
 
+        bool isDust =
+            fx.fxType is FXOneShotType.Break or
+                FXOneShotType.DustImpact or
+                FXOneShotType.Grounded or
+                FXOneShotType.Spawn or
+                FXOneShotType.Ungrounded;
+
+        if (isDust && !Main.instance.ToggleDust.Value)
+            return null;
+
         if (ReplayCache.FXToVFXName.TryGetValue(fx.fxType, out var poolName))
         {
-            if (fx.fxType is FXOneShotType.Break or FXOneShotType.DustImpact or FXOneShotType.Grounded or FXOneShotType.Spawn or FXOneShotType.Ungrounded && !Main.instance.ToggleDust.Value)
-                return null;
-            
-            var effect = GameObject.Instantiate(PoolManager.instance.GetPool(poolName).poolItem);
-            if (effect != null)
+            Structure source = null;
+
+            if (fx.structureId != -1)
             {
-                effect.transform.SetParent(VFXParent.transform);
+                for (int i = 0; i < currentReplay.Header.Structures.Length; i++)
+                {
+                    if (currentReplay.Header.Structures[i].structureId != fx.structureId)
+                        continue;
 
-                effect.transform.SetLocalPositionAndRotation(fx.position, fx.rotation);
-                effect.transform.localScale = Vector3.Scale(effect.transform.localScale, ReplayRoot.transform.localScale);
-                
-                var vfx = effect.GetComponent<VisualEffect>();
-                if (vfx != null)
-                    vfx.playRate = Abs(playbackSpeed);
-                
-                var tag = effect.gameObject.AddComponent<ReplayTag>();
-                tag.Type = poolName;
-                
-                effect.gameObject.AddComponent<DeleteAfterSeconds>();
+                    if (i < PlaybackStructures.Length && PlaybackStructures[i] != null)
+                        source = PlaybackStructures[i].GetComponent<Structure>();
 
-                vfxObject = effect.gameObject;
+                    break;
+                }
             }
+            
+            vfxObject = SpawnVFX(
+                poolName,
+                VFXParent.transform,
+                fx.position,
+                fx.rotation,
+                poolName,
+                source,
+                true
+            );
         }
 
         if (fx.fxType == FXOneShotType.Hitmarker && Main.instance.ToggleHitmarkers.Value)
         {
-            var pool = PoolManager.instance.GetPool("PlayerHitmarker");
-            var effect = GameObject.Instantiate(pool.poolItem.gameObject, VFXParent.transform);
-
-            effect.transform.localPosition = fx.position;
-            effect.transform.localRotation = Quaternion.identity;
-            effect.transform.localScale = Vector3.Scale(effect.transform.localScale, ReplayRoot.transform.localScale);
-            effect.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
-            effect.AddComponent<ReplayTag>();
-            effect.gameObject.AddComponent<DeleteAfterSeconds>();
+            var effect = SpawnVFX(
+                "PlayerHitmarker",
+                VFXParent.transform,
+                fx.position,
+                Quaternion.identity,
+                "PlayerHitmarker",
+                deleteAfterSeconds: true
+            );
 
             var hitmarker = effect.GetComponent<PlayerHitmarker>();
             hitmarker.SetDamage(fx.damage);
@@ -1300,10 +1456,9 @@ public class ReplayPlayback
             hitmarker.GetComponent<VisualEffect>().playRate = Abs(playbackSpeed);
         }
 
-        if (ReplayCache.FXToSFXName.TryGetValue(fx.fxType, out string audioName) && ReplayCache.SFX.TryGetValue(audioName, out var audioCall))
-        {
+        if (ReplayCache.FXToSFXName.TryGetValue(fx.fxType, out string audioName) 
+            && ReplayCache.SFX.TryGetValue(audioName, out var audioCall))
             AudioManager.instance.Play(audioCall, fx.position);
-        }
 
         return vfxObject;
     } 
@@ -1425,6 +1580,8 @@ public class ReplayPlayback
     
     public void SetPlaybackTime(float time)
     {
+        float oldTime = elapsedPlaybackTime;
+        
         elapsedPlaybackTime = Clamp(time, 0f, currentReplay.Frames[^1].Time);
 
         for (int i = 0; i < currentReplay.Frames.Length - 2; i++)
@@ -1445,8 +1602,43 @@ public class ReplayPlayback
             : 1f;
 
         ApplyInterpolatedFrame(currentPlaybackFrame, Clamp01(t));
+        UpdateVFX(oldTime);
 
         ReplayAPI.ReplayTimeChangedInternal(time);
+    }
+
+    private void UpdateVFX(float oldTime)
+    {
+        if (VFXParent == null)
+            return;
+
+        float delta = elapsedPlaybackTime - oldTime;
+
+        foreach (var fx in VFXParent.GetComponentsInChildren<FrameControlledVFX>(true))
+            ProcessFX(fx);
+
+        foreach (var fxList in PlaybackStructures.Select(go => go.GetComponentsInChildren<FrameControlledVFX>()))
+        {
+            foreach (var fx in fxList)
+                ProcessFX(fx);
+        }
+
+        void ProcessFX(FrameControlledVFX fx)
+        {
+            if (fx == null) return;
+
+            bool paused = Abs(playbackSpeed) < 0.0001f;
+            fx.vfx.pause = paused;
+            fx.vfx.playRate = paused ? 1f : Abs(playbackSpeed);
+
+            if (paused) // frame-stepping
+            {
+                if (delta > 0)
+                    fx.StepForward(delta);
+                else if (delta < 0)
+                    fx.Evaluate(elapsedPlaybackTime);
+            }
+        }
     }
     
     public void UpdateReplayCameraPOV(Player player, bool hideLocalPlayer = false)
@@ -1461,29 +1653,35 @@ public class ReplayPlayback
         
         localController.GetChild(6).gameObject.SetActive(!hideLocalPlayer);
         
-        var povHead = povPlayer?.Controller.PlayerIK.VrIK.references.head;
-        if (povHead != null)
+        if (povPlayer != null)
         {
-            if (povPlayer != null)
-            {
-                povHead.transform.localScale = Vector3.one;
-                povPlayer.Controller.transform.GetChild(6).gameObject.SetActive(true);
-                povPlayer.Controller.transform.GetChild(4).gameObject.SetActive(true);
-            }
+            povPlayer.Controller?.PlayerVisuals?.renderer?.material?.SetInt("_IsLocalPlayer", 0);
+            povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
+            povPlayer.Controller.transform.GetChild(6).gameObject.SetActive(true);
+            povPlayer.Controller.PlayerHealth.transform.GetChild(0).gameObject.SetActive(false);
+            povPlayer.Controller.ControllerType = ControllerType.Remote;
         }
 
         povPlayer = player;
         if (player != Main.LocalPlayer)
         {
-            povHead = povPlayer.Controller.PlayerIK.VrIK.references.head;
-            povHead.transform.localScale = Vector3.zero;
+            foreach (var mat in povPlayer.Controller?.PlayerVisuals?.renderer?.materials)
+            {
+                if (mat == null) continue;
+                mat.SetInt("_IsLocalPlayer", 1);
+            }
+            
             povPlayer.Controller.transform.GetChild(6).gameObject.SetActive(false);
             povPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
-            povPlayer.Controller.transform.GetChild(4).gameObject.SetActive(false);
+            povPlayer.Controller.PlayerHealth.transform.GetChild(0).gameObject.SetActive(true);
+            povPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(false);
+            
+            povPlayer.Controller.ControllerType = ControllerType.Local;
+            povPlayer.Controller.PlayerHealth.SetHealthBarPercentage(povPlayer.Data.HealthPoints, povPlayer.Data.HealthPoints, false);
             
             Main.LocalPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
             Main.LocalPlayer.Controller.PlayerNameTag.gameObject.SetActive(false);
-            povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = true;
+            povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
             
             foreach (var renderer in ReplayPlaybackControls.playbackControls.GetComponentsInChildren<Renderer>(true))
             {
@@ -1496,7 +1694,14 @@ public class ReplayPlayback
         else
         {
             cam.localPlayerVR = Main.LocalPlayer.Controller.PlayerVR;
-            if (povHead != null) povHead.transform.localScale = Vector3.one;
+            
+            foreach (var mat in povPlayer.Controller?.PlayerVisuals?.renderer?.materials)
+            {
+                if (mat == null) continue;
+                mat.SetInt("_IsLocalPlayer", 1);
+            }
+            
+            povPlayer.Controller.ControllerType = ControllerType.Local;
             
             povPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = false;
             Main.LocalPlayer.Controller.PlayerCamera.GetComponent<AudioListener>().enabled = true;
@@ -1599,13 +1804,7 @@ public class ReplayPlayback
                 pm = Controller.PlayerMovement;
                 ps = Controller.PlayerPoseSystem;
             }
-
-            if (VoiceSource == null)
-            {
-                VoiceSource = Controller.PlayerVoiceSystem.GetComponent<AudioSource>();
-                VoiceSource.spatialBlend = 1f;
-            }
-
+            
             int state;
 
             if (pm.IsGrounded())
@@ -1617,7 +1816,29 @@ public class ReplayPlayback
             
             if (Main.instance.CloseHandsOnPose.Value)
                 pa.animator.SetBool(PoseFistsActiveHash, ps.IsDoingAnyPose());
+
+            Controller.PlayerEyeSystem.blinkSpeed = 0.1f / Abs(Main.Playback.playbackSpeed);
             
+            UpdateVoicePlayback();
+        }
+
+        private void UpdateVoicePlayback()
+        {
+            if (VoiceSource == null)
+            {
+                VoiceSource = Controller.PlayerVoiceSystem.GetComponent<AudioSource>();
+                VoiceSource.spatialBlend = 1f;
+            }
+            
+            if (!Main.instance.ToggleVoices.Value)
+            {
+                if (VoiceSource != null && VoiceSource.isPlaying)
+                    VoiceSource.Stop();
+
+                currentTrack = null;
+                return;
+            }
+
             float replayTime = Main.Playback.elapsedPlaybackTime;
 
             VoiceTrack active = null;
@@ -1635,29 +1856,42 @@ public class ReplayPlayback
                 }
             }
 
-            if (active != currentTrack)
+            if (active == null)
+            {
+                if (currentTrack != null || VoiceSource.isPlaying)
+                    VoiceSource.Stop();
+
+                currentTrack = null;
+                VoiceSource.clip = null;
+                return;
+            }
+
+            float localTime = replayTime - active.StartTime;
+            localTime = Clamp(localTime, 0f, Max(0f, (active.Clip.samples / (float)active.Clip.frequency) - 0.01f));
+
+            bool changedTrack = active != currentTrack || VoiceSource.clip != active.Clip;
+            
+            if (changedTrack)
             {
                 VoiceSource.Stop();
                 currentTrack = active;
-
-                if (active != null)
-                {
-                    VoiceSource.clip = active.Clip;
-                    VoiceSource.time = replayTime - active.StartTime;
-                    VoiceSource.Play();
-                }
-            } else if (currentTrack != null && Main.instance.ToggleVoices.Value)
-            {
-                float localTime = replayTime - currentTrack.StartTime;
-
-                if (Abs(VoiceSource.time - localTime) > 0.1f)
-                    VoiceSource.time = localTime;
-
-                VoiceSource.pitch = Main.Playback.playbackSpeed;
-
-                if (!VoiceSource.isPlaying)
-                    VoiceSource.Play();
+                VoiceSource.clip = active.Clip;
             }
+
+            VoiceSource.pitch = Main.Playback.playbackSpeed;
+            VoiceSource.volume = Main.instance.VoiceVolume.Value;
+
+            if (Abs(VoiceSource.time - localTime) > 0.1f || changedTrack)
+                VoiceSource.time = localTime;
+
+            if (Main.Playback.playbackSpeed == 0f)
+            {
+                VoiceSource.Pause();
+                return;
+            }
+
+            if (!VoiceSource.isPlaying)
+                VoiceSource.Play();
         }
 
         public class VoiceTrack
@@ -1674,4 +1908,178 @@ public class ReplayPlayback
         public Structure attachedStructure;
     }
 
+    [RegisterTypeInIl2Cpp]
+    public class FrameControlledVFX : MonoBehaviour
+    {
+        public float spawnTime;
+        public uint seed = 12345u;
+        public VisualEffect vfx;
+
+        public void Awake()
+        {
+            spawnTime = Main.Playback.elapsedPlaybackTime;
+            vfx = GetComponent<VisualEffect>();
+        }
+
+        public void Evaluate(float time)
+        {
+            float age = time - spawnTime;
+
+            if (age < 0)
+                return;
+
+            float fps = Main.Playback.currentReplay.Header.TargetFPS;
+
+            float dt = 1f / fps;
+
+            int fullFrames = FloorToInt(age / dt);
+            float remainder = age - fullFrames * dt;
+
+            vfx.pause = true;
+            vfx.resetSeedOnPlay = false;
+            vfx.startSeed = seed;
+
+            vfx.Reinit();
+
+            if (fullFrames > 0)
+                vfx.Simulate(dt, (uint)fullFrames);
+
+            if (remainder > 0.0001f)
+                vfx.Simulate(remainder);
+
+            vfx.pause = true;
+        }
+
+        public void StepForward(float deltaTime)
+        {
+            if (deltaTime <= 0f)
+                return;
+            
+            if (vfx == null) return;
+
+            vfx.pause = true;
+            vfx.Simulate(deltaTime);
+            vfx.pause = true;
+        }
+    }
+
+    [RegisterTypeInIl2Cpp]
+    public class FrictionController : MonoBehaviour
+    {
+        private Structure structure;
+        private Vector3 velocity;
+
+        private PooledVisualEffect currentFrictionVfx;
+        private PooledAudioSource currentFrictionSource;
+
+        private float vfxReturnTimer;
+
+        public void Awake()
+        {
+            structure = GetComponent<Structure>();
+        }
+
+        public void Evaluate(float deltaTime, bool grounded, Vector3 structureVelocity)
+        {
+            velocity = structureVelocity;
+            float speed = velocity.magnitude;
+
+            bool sliding =
+                grounded &&
+                speed > structure.frictionFXTreshold;
+
+            if (sliding)
+            {
+                vfxReturnTimer = structure.frictionVFXReturnalDelay;
+
+                UpdateFrictionVFX();
+                UpdateFrictionAudio();
+            }
+            else
+            {
+                vfxReturnTimer -= deltaTime;
+
+                currentFrictionSource?.audioSource?.Stop();
+                currentFrictionSource?.ReturnToPool();
+                currentFrictionSource = null;
+                
+                currentFrictionVfx?.visualEffect?.Stop();
+
+                if (vfxReturnTimer <= 0f && currentFrictionVfx != null)
+                {
+                    Destroy(currentFrictionVfx.GetComponent<FrameControlledVFX>());
+                    currentFrictionVfx.ReturnToPool();
+                    currentFrictionVfx = null;
+                }
+            }
+        }
+
+        public void UpdateFrictionVFX()
+        {
+            if (currentFrictionVfx == null)
+            {
+                currentFrictionVfx = PoolManager.instance.GetPooledObject("DustGroundedFriction_VFX").GetComponent<PooledVisualEffect>();
+
+                currentFrictionVfx.transform.SetParent(transform, false);
+
+                var bounds = structure.meshRenderer.bounds;
+                currentFrictionVfx.transform.position = new Vector3(
+                    bounds.center.x,
+                    bounds.min.y,
+                    bounds.center.z
+                );
+                
+                currentFrictionVfx.transform.localRotation = Quaternion.identity;
+                currentFrictionVfx.UpdateParameterBasedOnStructure(structure);
+
+                currentFrictionVfx.visualEffect.resetSeedOnPlay = false;
+                currentFrictionVfx.visualEffect.startSeed = (uint)Random.Range(0, int.MaxValue);
+                
+                currentFrictionVfx.gameObject.AddComponent<FrameControlledVFX>().seed = currentFrictionVfx.visualEffect.startSeed;
+                currentFrictionVfx.ActivateEffect();
+            }
+
+            currentFrictionVfx.visualEffect.SetVector3(structure.frictionVFXVelocityParamater, velocity);
+        }
+
+        public void UpdateFrictionAudio()
+        {
+            if (currentFrictionSource == null)
+            {
+                currentFrictionSource = PoolManager.instance.GetPooledObject("Audio_SFX").GetComponent<PooledAudioSource>();
+
+                currentFrictionSource.transform.SetParent(transform, false);
+                currentFrictionSource.transform.localPosition = Vector3.zero;
+                currentFrictionSource.transform.localRotation = Quaternion.identity;
+
+                AudioManager.instance.Play(
+                    structure.frictionAudioCall,
+                    currentFrictionSource.audioSource,
+                    true
+                );
+            }
+
+            float volume = structure.frictionAudioVolumeCurve.Evaluate(velocity.magnitude);
+            currentFrictionSource.audioSource.volume = volume * Main.Playback.playbackSpeed;
+        }
+
+        private void OnDisable()
+        {
+            currentFrictionSource?.audioSource?.Stop();
+            currentFrictionSource?.ReturnToPool();
+            currentFrictionSource = null;
+
+            if (currentFrictionVfx != null)
+            {
+                Destroy(currentFrictionVfx.GetComponent<FrameControlledVFX>());
+
+                currentFrictionVfx.visualEffect?.Stop();
+                currentFrictionVfx.ReturnToPool();
+                currentFrictionVfx = null;
+            }
+
+            velocity = Vector3.zero;
+            vfxReturnTimer = 0f;
+        }
+    }
 }

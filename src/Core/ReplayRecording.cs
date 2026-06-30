@@ -17,6 +17,7 @@ using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
 using UnityEngine;
 using UnityEngine.VFX;
+using Object = UnityEngine.Object;
 using Player = Il2CppRUMBLE.Players.Player;
 using Stack = Il2CppRUMBLE.MoveSystem.Stack;
 
@@ -31,17 +32,17 @@ namespace ReplayMod.Core;
 /// </summary>
 public class ReplayRecording
 {
-    public bool isRecording = false;
+    public bool isRecording;
     
-    public float lastSampleTime = 0f;
+    public float lastSampleTime;
 
     public float recordingStartTime;
 
     public int pingSum;
     public int pingCount;
     public int pingMin = int.MaxValue;
-    public int pingMax = 0;
-    public float pingTimer = 0f;
+    public int pingMax;
+    public float pingTimer;
     
     public string recordingSceneName;
 
@@ -84,7 +85,7 @@ public class ReplayRecording
     // Replay Buffer
     public Queue<Frame> replayBuffer = new();
     public Queue<Marker> bufferMarkers = new();
-    public bool isBuffering = false;
+    public bool isBuffering;
     
     // World
     public List<Structure> Structures = new();
@@ -256,7 +257,7 @@ public class ReplayRecording
             bool recordFingers = Main.instance.HandFingerRecording.Value;
             var playerHandPresence = p.Controller.GetSubsystem<PlayerHandPresence>();
 
-            var rockCam = p.Controller.GetSubsystem<PlayerLIV>()?.LckTablet.transform.gameObject;
+            var rockCam = p.Controller.GetSubsystem<PlayerLIV>()?.LckTablet?.transform?.gameObject;
 
             var measurement = p.Controller.assignedPlayer.Data.PlayerMeasurement;
             
@@ -456,7 +457,7 @@ public class ReplayRecording
 
         if (string.IsNullOrWhiteSpace(pattern))
         {
-            Main.ReplayError($"{logPrefix} was not saved due to missing name format file.");
+            Main.ReplayError($"Missing auto-name format for scene '{recordingSceneName}'");
             pattern = "{Host} vs {Client} - {Scene}";
         }
 
@@ -478,18 +479,26 @@ public class ReplayRecording
         MelonCoroutines.Start(ReplayArchive.BuildReplayPackageSafe(
             path,
             replayInfo,
-            () =>
+            (success) =>
             {
-                AudioManager.instance.Play(ReplayCache.SFX["Call_PoseGhost_PosePerformed"], 
-                    Main.LocalPlayer.Controller.GetSubsystem<PlayerVR>().transform.position);
-                Main.instance.LoggerInstance.Msg($"{logPrefix} saved to disk: '{path}'");
+                if (success)
+                    AudioManager.instance.Play(ReplayCache.SFX["Call_PoseGhost_PosePerformed"], 
+                        Main.LocalPlayer.Controller.GetSubsystem<PlayerVR>().transform.position);
                 
                 if (Main.instance.EnableHaptics.Value)
                     Main.LocalPlayer.Controller.GetSubsystem<PlayerHaptics>().PlayControllerHaptics(1f, 0.15f, 1f, 0.15f);
                 
                 CurrentRecordingState = isRecording ? RecordingState.Recording : RecordingState.Idle;
 
-                onSave?.Invoke(replayInfo, path);
+                if (success)
+                {
+                    Main.instance.LoggerInstance.Msg($"{logPrefix} saved to disk: '{path}'");
+                    onSave?.Invoke(replayInfo, path);
+                }
+                else
+                {
+                    Main.ReplayError($"Something went wrong when saving the replay.");
+                }
 
                 ReplayFiles.ReloadReplays();
             }
@@ -545,16 +554,18 @@ public class ReplayRecording
     public void SetupRecordingData()
     {
         RecordedPlayers.Clear();
+        RecordedPlayerInfos.Clear();
         PlayerSlots.Clear();
         PlayerInfos.Clear();
         Structures.Clear();
         StructureInfos.Clear();
+        SceneProps.Clear();
         ScenePropInfos.Clear();
         Pedestals.Clear();
 
         recordingSceneName = Main.currentScene;
 
-        recordingStartTime = Time.time;
+        recordingStartTime = Time.realtimeSinceStartup;
         
         foreach (var structure in CombatManager.instance.structures)
             TryRegisterStructure(structure);
@@ -568,7 +579,7 @@ public class ReplayRecording
 
         Pedestals.AddRange(Utilities.EnumerateMatchPedestals());
 
-        var fruits = GameObject.FindObjectsOfType<Fruit>();
+        var fruits = Object.FindObjectsOfType<Fruit>();
         foreach (var fruit in fruits)
         {
             ScenePropInfos.Add(new ScenePropInfo
@@ -622,7 +633,7 @@ public class ReplayRecording
         return newSlotReal;
     }
 
-    int AddPlayer(Player player)
+    private int AddPlayer(Player player)
     {
         int slot = RecordedPlayers.Count;
 

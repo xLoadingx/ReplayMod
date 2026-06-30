@@ -20,8 +20,6 @@ namespace ReplayMod.Replay;
 // Voice recording - PRERELEASE
 public static class ReplayVoices
 {
-    private static PunVoiceClient voice;
-
     private static readonly Dictionary<(int actorId, int voiceId), VoiceStreamWriter> writers = new();
     public static string VoiceCacheDir = Path.Combine(MelonEnvironment.UserDataDirectory, "ReplayMod", "VoiceCache");
 
@@ -149,8 +147,7 @@ public static class ReplayVoices
         
         int playerId = link.PlayerId;
         int voiceId = link.VoiceId;
-
-        float startTime = Time.time - Main.Recording.recordingStartTime;
+        
         Main.DebugLog($"VoiceAdded actor={playerId} voice={voiceId}");
 
         var player = PlayerManager.instance.AllPlayers.ToArray()
@@ -168,6 +165,8 @@ public static class ReplayVoices
 
             if (!writers.TryGetValue((playerId, voiceId), out var writer))
             {
+                float startTime = Time.realtimeSinceStartup - Main.Recording.recordingStartTime;
+                
                 string fileName = $"p{name}_{masterId}_v{voiceId}_{Time.frameCount}.ogg";
                 string path = Path.Combine(VoiceCacheDir, fileName);
 
@@ -176,7 +175,7 @@ public static class ReplayVoices
                     link.VoiceInfo.SamplingRate,
                     link.VoiceInfo.Channels,
                     path,
-                    bitrate: Mathf.Clamp(Main.instance.voiceBitrate.Value, 8, 128),
+                    bitrate: Mathf.Clamp(Main.instance.voiceBitrate.Value, 8, 128) * 1000,
                     initalTimeStamp: startTime // file doesnt actually start until the person starts speaking for the first time
                 );
 
@@ -208,7 +207,6 @@ public static class ReplayVoices
         public int Channels { get; private set; }
 
         private readonly FileStream _fileStream;
-        private readonly IOpusEncoder _encoder;
         private readonly OpusOggWriteStream _wav;
 
         public VoiceStreamWriter(
@@ -230,16 +228,16 @@ public static class ReplayVoices
 
             _fileStream = File.Create(path);
             
-            _encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, OpusApplication.OPUS_APPLICATION_VOIP);
-            _encoder.Bitrate = bitrate;
-            _encoder.Complexity = complexity;
-            _encoder.SignalType = OpusSignal.OPUS_SIGNAL_VOICE;
+            var encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, OpusApplication.OPUS_APPLICATION_VOIP);
+            encoder.Bitrate = bitrate;
+            encoder.Complexity = complexity;
+            encoder.SignalType = OpusSignal.OPUS_SIGNAL_VOICE;
 
             OpusTags tags = new();
             tags.Fields.Add("Type", "Rumble ReplayMod Captured Voice");
             tags.Fields.Add("Origin", "https://github.com/xLoadingx/ReplayMod");
             tags.Fields.Add("Encoder", "https://github.com/lostromb/concentus");
-            _wav = new(_encoder, _fileStream, tags);
+            _wav = new OpusOggWriteStream(encoder, _fileStream, tags);
         }
 
         public void Write(float[] samples)

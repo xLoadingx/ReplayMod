@@ -1,3 +1,39 @@
+# 1.2.2
+Hey so like apparently the whole mod was broken for the past two months so:
+- Made replay clones not lag the game anymore and allowed replays to actually play correctly
+- Fixed VFX not showing up in replays
+- Fixed voices not working correctly on clones
+- Added compression level setting for replay files
+- Added a voice volume setting
+- Renamed `Visuals Toggles` to `Playback Toggles`
+- Fixed an issue with custom map recordings not changing the map when in the same scene
+- Fixed boulders spawning in Pit replays
+- Made saving recordings not play the success sound when an error happened
+- Made sure everything was cleared between recordings
+- Removed setting structureId for replay structures
+- Made replay clones voices stop playing when switching replays
+- Made sure pooled clones are reset correctly when switching replays
+- Allowed VFX to update when skipping frames
+- Added grounded friction VFX to the replays
+- Fixed some parts of replay clones not updating according to the replay
+- Made POV mode compatible with Custom Avatars
+- Added the healthbar to be visible and working in POV mode
+- Allowed more VFX types to be controlled by the replay
+  - Explosions
+  - Uppercut
+  - Straight
+  - Kick
+- Fixed position and rotation recording still adding data when not needed
+- Reduced the amount of arrays it has to make to serialize replay files
+- Made sure voices lined up with when players actually spoke
+- Added more safety checks around saving replay files
+- Made sure external mods couldn't error internal systems with the API
+
+# 1.2.1
+- Actually added voice settings menu
+- Allowed custom scene replays to be loaded if in recorded scene
+- Fixed players sometimes being invisible because of null mesh.
+
 # 1.2.0
 - Added MIT License to the project
 - Added Melon Color back (red)
@@ -11,6 +47,7 @@
 - Fixed recorded replay clones not showing up in recordings
 - Removed all ModUI and ModUI+ references
 - Fixed crystal erroring when holding grip between scene loads
+- Fixed replay explorer not letting you change replays when the current page is all folders
 
 # 1.1.1
 - Me when I forget to add the dependencies

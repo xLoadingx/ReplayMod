@@ -1,15 +1,15 @@
 using System.IO;
 using System.IO.Compression;
 
-namespace ReplayMod;
+namespace ReplayMod.Replay.Serialization;
 
 public class ReplayCodec
 {
-    public static byte[] Compress(byte[] data)
+    public static byte[] Compress(byte[] data, CompressionLevel level)
     {
         using var ms = new MemoryStream();
         
-        using (var brotli = new BrotliStream(ms, CompressionLevel.Optimal, leaveOpen: true))
+        using (var brotli = new BrotliStream(ms, level, leaveOpen: true))
         {
             brotli.Write(data, 0, data.Length);
         }

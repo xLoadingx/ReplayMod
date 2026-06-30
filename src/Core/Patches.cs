@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using HarmonyLib;
 using Il2Cpp;
 using Il2CppPhoton.Pun;
@@ -20,7 +22,9 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.VFX;
 using static UnityEngine.Mathf;
+using Debug = UnityEngine.Debug;
 using EventType = ReplayMod.Replay.Serialization.EventType;
+using Object = UnityEngine.Object;
 using SceneManager = Il2CppRUMBLE.Managers.SceneManager;
 using Stack = Il2CppRUMBLE.MoveSystem.Stack;
 
@@ -38,7 +42,7 @@ public class Patches
     [HarmonyPatch(typeof(PoolManager), nameof(PoolManager.Instantiate))]
     public class Patch_PoolManager_Instantiate
     {
-        static void Postfix(GameObject __result)
+        private static void Postfix(GameObject __result)
         {
             if (!Main.instance.UIInitialized)
                 return;
@@ -55,7 +59,7 @@ public class Patches
     [HarmonyPatch(new[] { typeof(AudioCall), typeof(Vector3), typeof(bool) })]
     public class Patch_AudioManager_Play
     {
-        static void Postfix(Vector3 position, AudioCall call)
+        private static void Postfix(Vector3 position, AudioCall call)
         {
             if (call == null || !Main.instance.UIInitialized)
                 return;
@@ -79,7 +83,7 @@ public class Patches
         { })]
     public class Patch_PoolMonoBehavior_FetchFromPoolNoParameters
     {
-        static void Postfix(PooledMonoBehaviour __result)
+        private static void Postfix(PooledMonoBehaviour __result)
         {
             var vfx = __result.GetComponent<VisualEffect>(); 
             if (vfx == null) 
@@ -93,7 +97,7 @@ public class Patches
     [HarmonyPatch(new[] { typeof(Vector3), typeof(Quaternion) })]
     public class Patch_PoolMonoBehavior_FetchFromPool
     {
-        static void Postfix(PooledMonoBehaviour __result, Vector3 position, Quaternion rotation)
+        private static void Postfix(PooledMonoBehaviour __result, Vector3 position, Quaternion rotation)
         {
             if (Main.currentScene == "Loader" || !Main.instance.UIInitialized)
                 return;
@@ -128,7 +132,7 @@ public class Patches
                 Main.Recording.Events.Add(evt);
             }
     
-            if (Main.Playback.playbackSpeed != 0f && Main.Playback.isPlaying)
+            if (Main.Playback.isPlaying)
             {
                 float minDistance = 999999f;
                 
@@ -139,20 +143,28 @@ public class Patches
                         .Min();
                 }
     
-                if (name is "VFX_Dust_Modifier_Free" or "VFX_Dust_Modifier_Ground" && Main.Playback.PlaybackStructures?.Length > 0)
+                if (name is "VFX_Dust_Modifier_Free" or 
+                        "VFX_Dust_Modifier_Ground" or 
+                        "ExplodeFinale_VFX" or 
+                        "ExplodeActivation_VFX" or 
+                        "Uppercut_VFX" or 
+                        "Straight_VFX" or 
+                        "Kick_VFX" 
+                    && Main.Playback.PlaybackStructures?.Length > 0)
                 {
                     minDistance = Main.Playback.PlaybackStructures
                         .Select(structure => Vector3.Distance(structure.transform.position, vfx.transform.position))
                         .Min();
                 }
                 
-                if (minDistance < 1f * Main.Playback.ReplayRoot?.transform?.localScale.magnitude)
+                if (minDistance < 2f * Main.Playback.ReplayRoot?.transform.localScale.magnitude)
                 {
                     vfx.playRate = Abs(Main.Playback.playbackSpeed); 
-                    GameObject.Destroy(vfx.GetComponent<PooledVisualEffect>()); 
+                    Object.Destroy(vfx.GetComponent<PooledVisualEffect>()); 
                     vfx.transform.SetParent(Main.Playback.VFXParent.transform);
                     vfx.transform.localScale = Vector3.Scale(vfx.transform.localScale, Main.Playback.ReplayRoot.transform.localScale);
                     vfx.gameObject.AddComponent<DeleteAfterSeconds>(); 
+                    vfx.gameObject.AddComponent<ReplayPlayback.FrameControlledVFX>();
                     return;
                 }
                 
@@ -161,10 +173,10 @@ public class Patches
         }
     }
 
-    [HarmonyPatch(typeof(VFXFloatSwitch), nameof(VFXFloatSwitch.Apply))]
-    public class Patch_VFXFloatSwitch_Apply
+    [HarmonyPatch(typeof(PooledVisualEffect), nameof(PooledVisualEffect.UpdateParameterBasedOnStructure))]
+    public class Patch_PooledVisualEffect_UpdateParameterBasedOnStructure
     {
-        static void Prefix(VFXFloatSwitch __instance, VisualEffect effect, int structureID)
+        static void Prefix(PooledVisualEffect __instance, Structure s)
         {
             if (!Main.instance.UIInitialized)
                 return;
@@ -172,18 +184,18 @@ public class Patches
             if (!Main.Recording.isRecording && !Main.Recording.isBuffering)
                 return;
             
-            if (!ReplayCache.VFXNameToFX.TryGetValue(effect.name, out var type))
+            if (!ReplayCache.VFXNameToFX.TryGetValue(__instance.visualEffect.name, out var type))
                 return;
 
-            if (!frameSeenEffects.Add(effect))
+            if (!frameSeenEffects.Add(__instance.visualEffect))
                 return;
             
             var evt = new EventChunk
             {
                 type = EventType.OneShotFX,
                 fxType = type,
-                position = effect.transform.position,
-                structureId = structureID
+                position = __instance.transform.position,
+                structureId = s.structureID
             };
 
             Main.Recording.Events.Add(evt);
@@ -346,6 +358,44 @@ public class Patches
         }
     }
 
+    [HarmonyPatch(typeof(PlayerHandPresence), nameof(PlayerHandPresence.GetHandPresenceInputForHand))]
+    public class Patch_PlayerHandPresence_GetHandPresenceInputForHand
+    {
+        static bool Prefix(PlayerHandPresence __instance, InputManager.Hand hand, ref PlayerHandPresence.HandPresenceInput __result)
+        {
+            if (!Main.instance.UIInitialized)
+                return true;
+
+            if (__instance.parentController == null)
+                return true;
+
+            if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
+                return true;
+
+            foreach (var player in Main.Playback.PlaybackPlayers)
+            {
+                if (player == null)
+                    continue;
+
+                if (player.Controller != __instance.parentController)
+                    continue;
+
+                __result = hand == InputManager.Hand.Left
+                    ? player.lHandInput
+                    : player.rHandInput;
+
+                return false;
+            }
+
+            return true;
+        }
+
+        static Exception Finalizer(Exception __exception)
+        {
+            return null;
+        }
+    }
+    
     [HarmonyPatch(typeof(PlayerHandPresence), nameof(PlayerHandPresence.UpdateHandPresenceAnimationStates))]
     public class Patch_PlayerHandPresence_UpdateHandPresenceAnimationStates
     {

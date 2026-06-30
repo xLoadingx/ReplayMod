@@ -51,9 +51,14 @@
       <None Remove="src\Core\replayobjects" />
       <EmbeddedResource Include="src\Core\replayobjects" />
     </ItemGroup>
-  
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-      <Exec Command="COPY &quot;$(TargetPath)&quot; &quot;E:\SteamLibrary\steamapps\common\RUMBLE\Mods&quot;&#xA;&#xA;COPY &quot;$(TargetPath)&quot; &quot;E:\Projects\ReplayMod\ERRORMODS-ReplayMod-1.0.0\Mods&quot;&#xA;" />
+
+    <PropertyGroup>
+        <RumbleModsPath Condition="'$(OS)' == 'Windows_NT'">E:\SteamLibrary\steamapps\common\RUMBLE\Mods</RumbleModsPath>
+        <RumbleModsPath Condition="'$(OS)' != 'Windows_NT'">/home/callie/.local/share/Steam/steamapps/common/RUMBLE/Mods</RumbleModsPath>
+    </PropertyGroup>
+
+    <Target Name="PostBuild" AfterTargets="Build">
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(RumbleModsPath)" />
     </Target>
 
 </Project>

@@ -1,6 +1,9 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using Il2CppPhoton.Pun;
 using Il2CppRUMBLE.Combat.ShiftStones;
 using Il2CppRUMBLE.Environment;
@@ -10,7 +13,7 @@ using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Slabs.Forms;
 using Il2CppRUMBLE.Social.Phone;
-using Il2CppSystem;
+using Il2CppSystem.Collections.Generic;
 using Il2CppSystem.IO;
 using Il2CppTMPro;
 using MelonLoader;
@@ -19,16 +22,25 @@ using ReplayMod.Replay;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
 using ReplayMod.Replay.UI;
+using RumbleModdingAPI;
 using RumbleModdingAPI.RMAPI;
 using UIFramework;
+using UIFramework.UiExtensions;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.InputSystem.Plugins.InputForUI;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.VFX;
+using UnityEngine.XR;
+using UnityEngine.XR.Management;
 using static UnityEngine.Mathf;
 using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using BuildInfo = ReplayMod.Core.BuildInfo;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 using InteractionButton = Il2CppRUMBLE.Interactions.InteractionBase.InteractionButton;
 using Main = ReplayMod.Core.Main;
+using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 using Utilities = ReplayMod.Replay.Utilities;
 
@@ -43,7 +55,7 @@ public static class BuildInfo
 {
     public const string Name = "ReplayMod";
     public const string Author = "ERROR";
-    public const string Version = "1.2.0";
+    public const string Version = "1.2.2";
     public const string FormatVersion = "1.1.0";
 }
 
@@ -54,7 +66,7 @@ public class Main : MelonMod
     public Main() => instance = this;
     
     public static string currentScene => Calls.Scene.GetSceneName();
-    public static bool isSceneReady = false;
+    public static bool isSceneReady;
 
     public static ReplayPlayback Playback;
     public static ReplayRecording Recording;
@@ -67,11 +79,11 @@ public class Main : MelonMod
     // Recording FX / timers
     public GameObject clapperboardVFX;
     public bool hasPlayed;
-    public float heldTime, soundTimer = 0f;
-    public float lastTriggerTime = 0f;
+    public float heldTime, soundTimer;
+    public float lastTriggerTime;
 
     // UI
-    public bool UIInitialized = false;
+    public bool UIInitialized;
     
     public ReplayTable replayTable;
     public GameObject flatLandRoot;
@@ -88,22 +100,23 @@ public class Main : MelonMod
     private const string CONFIG_FILE = "config.cfg";
 
     // Recording
-    public MelonPreferences_Entry<int> TargetRecordingFPS = new();
-    public MelonPreferences_Entry<bool> AutoRecordMatches = new();
-    public MelonPreferences_Entry<bool> AutoRecordParks = new();
+    public MelonPreferences_Entry<int> TargetRecordingFPS;
+    public MelonPreferences_Entry<bool> AutoRecordMatches;
+    public MelonPreferences_Entry<bool> AutoRecordParks;
+    public MelonPreferences_Entry<CompressionLevel> CompressionLevel;
 
-    public MelonPreferences_Entry<bool> HandFingerRecording = new();
-    public MelonPreferences_Entry<bool> CloseHandsOnPose = new();
+    public MelonPreferences_Entry<bool> HandFingerRecording;
+    public MelonPreferences_Entry<bool> CloseHandsOnPose;
 
     // Recording - Voices
-    public MelonPreferences_Entry<bool> VoiceRecording = new();
-    public MelonPreferences_Entry<int> voiceBitrate = new();
+    public MelonPreferences_Entry<bool> VoiceRecording;
+    public MelonPreferences_Entry<int> voiceBitrate;
 
     // Automatic Markers - Match End
-    public MelonPreferences_Entry<bool> EnableMatchEndMarker = new();
+    public MelonPreferences_Entry<bool> EnableMatchEndMarker;
 
     // Automatic Markers - Round End
-    public MelonPreferences_Entry<bool> EnableRoundEndMarker = new();
+    public MelonPreferences_Entry<bool> EnableRoundEndMarker;
 
     // Automatic Markers - Large Damage
     public MelonPreferences_Entry<bool> EnableLargeDamageMarker;
@@ -114,9 +127,10 @@ public class Main : MelonMod
     public MelonPreferences_Entry<bool> StopReplayWhenDone;
     public MelonPreferences_Entry<bool> PlaybackControlsFollow;
     public MelonPreferences_Entry<bool> DestroyControlsOnPunch;
-    public MelonPreferences_Entry<bool> ToggleUI;
+    public MelonPreferences_Entry<float> VoiceVolume;
 
     // Playback Toggles
+    public MelonPreferences_Entry<bool> ToggleUI;
     public MelonPreferences_Entry<bool> ToggleNameplate;
     public MelonPreferences_Entry<bool> ToggleHealthBar;
     public MelonPreferences_Entry<bool> ToggleDust;
@@ -195,14 +209,22 @@ public class Main : MelonMod
         TargetRecordingFPS = recordingFolder.CreateEntry("Recording_FPS", 50, "Recording FPS", "The target frame rate used when recording replays.\nThis is limited by the game's actual frame rate.");
         AutoRecordMatches = recordingFolder.CreateEntry("Automatically_Record_Matches", true, "Automatically Record Matches", "Automatically start recording when you join a match");
         AutoRecordParks = recordingFolder.CreateEntry("Automatically_Record_Parks", false, "Automatically Record Parks", "Automatically start recording when you join a park");
+
+        CompressionLevel = recordingFolder.CreateEntry("Replay_Compression_Level", System.IO.Compression.CompressionLevel.Optimal, "Compression Level",
+            "How much replays should be compressed. Harsher compression shrinks the files more, but takes more time.\nDefault: Optimal");
         
         HandFingerRecording = recordingFolder.CreateEntry("Finger_Animation_Recording", true, "Finger Animation Recording", "Controls whether finger input values are recorded into the replay.");
         CloseHandsOnPose = recordingFolder.CreateEntry("Close_Hands_On_Pose", true, "Close Hands On Pose", "Closes the hands of a clone when they do a pose.");
 
         var voiceFolder = MelonPreferences.CreateCategory("Voices");
         
-        VoiceRecording = voiceFolder.CreateEntry("Voice_Recording", true, "Record In-Game Voices", "Toggles whether in-game voices are recorded into replays.");
-        voiceBitrate = voiceFolder.CreateEntry("Voice_Bitrate", 30, "Voice Bitrate", "Determines what bitrate voices are recorded in.\nDefault: 30");
+        VoiceRecording = voiceFolder.CreateEntry("Voice_Recording", false, "Record In-Game Voices", "Toggles whether in-game voices are recorded into replays.");
+        voiceBitrate = voiceFolder.CreateEntry("Voice_Bitrate", 30, "Voice Bitrate (kbps)", "Determines what bitrate voices are recorded in.\nDefault: 30");
+        VoiceVolume = voiceFolder.CreateEntry(
+            "Voice_Volume", 1f, "Voice Volume", 
+            "Controls the volume of recorded voice playback.", 
+            validator: new SliderDescriptor { DecimalPlaces = 2 }
+        );
         
         var automaticMarkersFolder = MelonPreferences.CreateCategory("Automatic_Markers", "Automatic Markers");
         automaticMarkersFolder.SetFilePath(configPath);
@@ -221,7 +243,7 @@ public class Main : MelonMod
         PlaybackControlsFollow = playbackFolder.CreateEntry("Playback_Controls_Follow_Player", false, "Playback Controls Follow Player", "Makes the playback controls menu follow you when opened.");
         DestroyControlsOnPunch = playbackFolder.CreateEntry("Destroy_Controls_On_Punch", true, "Destroy Controls On Punch", "Destroys the playback controls when you punch the slab hard enough.");
         
-        var playbackTogglesFolder = MelonPreferences.CreateCategory("Visual Toggles");
+        var playbackTogglesFolder = MelonPreferences.CreateCategory("Playback Toggles");
         playbackTogglesFolder.SetFilePath(configPath);
 
         ToggleUI = playbackTogglesFolder.CreateEntry("Toggle_UI", true, "Toggle UI", "Toggles whether the UI for selecting replays is visible.");
@@ -326,9 +348,12 @@ public class Main : MelonMod
         
         VoiceRecording.OnEntryValueChanged.Subscribe((_, value) =>
         {
-            if (value && !ReplayVoices.isRecording)
+            if (!ReplayVoices.isRecording)
+                return;
+            
+            if (value)
                 ReplayVoices.StartRecording();
-            else if (!value && ReplayVoices.isRecording)
+            else
                 ReplayVoices.StopRecording();
         });
         
@@ -336,16 +361,16 @@ public class Main : MelonMod
         {
             if (!Playback.isPlaying)
                 return;
+
+            if (value) return;
             
-            if (!value)
-            {
-                foreach (var clone in Playback.PlaybackPlayers)
-                    clone.VoiceSource.Stop();
-            }
+            foreach (var clone in Playback.PlaybackPlayers)
+                clone.VoiceSource.Stop();
         });
         
-        UI.Register(this,
+        UI.RegisterMelon(this,
             recordingFolder,
+            voiceFolder,
             automaticMarkersFolder,
             playbackFolder,
             playbackTogglesFolder,
@@ -362,7 +387,7 @@ public class Main : MelonMod
     {
         if (!UIInitialized) return;
         
-        Actions.onMapInitialized += (scene) => OnMapInitialized();
+        Actions.onMapInitialized += _ => OnMapInitialized();
         
         Actions.onRoundEnded += () =>
         {
@@ -428,157 +453,181 @@ public class Main : MelonMod
 
     public void OnMapInitialized()
     {
-        if (!UIInitialized) return;
-        
-        var recordingIcon = Create.NewText().GetComponent<TextMeshPro>();
-        recordingIcon.transform.SetParent(LocalPlayer.Controller.GetSubsystem<PlayerUI>().transform.GetChild(0));
-        recordingIcon.name = "Replay Recording Icon";
-        recordingIcon.color = new Color(0, 1, 0, 0);
-        recordingIcon.text = "●";
-        recordingIcon.ForceMeshUpdate();
-        recordingIcon.transform.localPosition = new Vector3(0.2313f, 0.0233f, 0.9604f);
-        recordingIcon.transform.localRotation = Quaternion.Euler(20.2549f, 18.8002f, 0);
-        recordingIcon.transform.localScale = Vector3.one * 0.4f;
-
-        var recordingIconComp = recordingIcon.gameObject.AddComponent<ReplayRecording.RecordingIcon>();
-        recordingIconComp.tmp = recordingIcon;
-        recordingIconComp.recording = Recording;
-        
-        ReplayRecording.recordingIcon = recordingIconComp;
-        
-        recordingIconComp.SyncToState();
-        
-        if (((currentScene is "Map0" or "Map1" && AutoRecordMatches.Value && PlayerManager.instance.AllPlayers.Count > 1) || (currentScene == "Park" && AutoRecordParks.Value)) && !ReplayPlayback.isReplayScene)
-            Recording.StartRecording();
-
-        if ((ReplayCache.SFX == null || ReplayCache.structurePools == null) && currentScene != "Loader")
-            ReplayCache.BuildCacheTables();
-
-        if (replayTable == null && clapperboardVFX == null)
-            LoadReplayObjects();
-
-        if (ReplayCrystals.crystalParent == null)
-            ReplayCrystals.crystalParent = new GameObject("Crystals");
-        
-        if (currentScene == "Gym")
+        try
         {
-            replayTable.TableRoot.SetActive(true);
-            replayTable.metadataText.gameObject.SetActive(true);
-            
-            if (replayTable.tableFloat != null)
-                replayTable.tableFloat.startPos = new Vector3(5.9506f, 1.3564f, 4.1906f);
-            
-            if (replayTable.metadataTextFloat != null)
-                replayTable.metadataTextFloat.startPos = new Vector3(5.9575f, 1.8514f, 4.2102f);
-            
-            replaySettings.gameObject.transform.localPosition = new Vector3(0.3782f, 0.88f, 0.1564f);
-            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(23.4376f, 90f, 90f);
-            
-            replayTable.tableOffset = 0f;
-            replayTable.transform.localRotation = Quaternion.Euler(270, 121.5819f, 0);
-        }
-        else if (currentScene == "Park")
-        {
-            replayTable.TableRoot.SetActive(true);
-            replayTable.metadataText.gameObject.SetActive(true);
-            
-            replayTable.tableFloat.startPos = new Vector3(-28.9436f, -1.5689f, -6.9218f);
-            replayTable.metadataTextFloat.startPos = new Vector3(-28.9499f, -2.0639f, -6.9414f);
-            
-            replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
-            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
-            
-            replayTable.tableOffset = -3.06f;
-            replayTable.transform.localRotation = Quaternion.Euler(270f, 0, 0);
+            if (!UIInitialized) return;
+
+            var recordingIcon = Create.NewText().GetComponent<TextMeshPro>();
+            recordingIcon.transform.SetParent(LocalPlayer.Controller.GetSubsystem<PlayerUI>().transform.GetChild(0));
+            recordingIcon.name = "Replay Recording Icon";
+            recordingIcon.color = new Color(0, 1, 0, 0);
+            recordingIcon.text = "●";
+            recordingIcon.ForceMeshUpdate();
+            recordingIcon.transform.localPosition = new Vector3(0.2313f, 0.0233f, 0.9604f);
+            recordingIcon.transform.localRotation = Quaternion.Euler(20.2549f, 18.8002f, 0);
+            recordingIcon.transform.localScale = Vector3.one * 0.4f;
+
+            var recordingIconComp = recordingIcon.gameObject.AddComponent<ReplayRecording.RecordingIcon>();
+            recordingIconComp.tmp = recordingIcon;
+            recordingIconComp.recording = Recording;
+
+            ReplayRecording.recordingIcon = recordingIconComp;
+
+            recordingIconComp.SyncToState();
+
+            if (((currentScene is "Map0" or "Map1" && AutoRecordMatches.Value && PlayerManager.instance.AllPlayers.Count > 1) || (currentScene == "Park" && AutoRecordParks.Value)) && !ReplayPlayback.isReplayScene)
+                Recording.StartRecording();
+
+            if ((ReplayCache.SFX == null || ReplayCache.structurePools == null) && currentScene != "Loader")
+                ReplayCache.BuildCacheTables();
+
+            if (replayTable == null && clapperboardVFX == null)
+                LoadReplayObjects();
+
+            if (ReplayCrystals.crystalParent == null)
+                ReplayCrystals.crystalParent = new GameObject("Crystals");
+
+            if (currentScene == "Gym")
+            {
+                replayTable.TableRoot.SetActive(true);
+                replayTable.metadataText.gameObject.SetActive(true);
+
+                if (replayTable.tableFloat != null)
+                    replayTable.tableFloat.startPos = new Vector3(5.9506f, 1.3564f, 4.1906f);
+
+                if (replayTable.metadataTextFloat != null)
+                    replayTable.metadataTextFloat.startPos = new Vector3(5.9575f, 1.8514f, 4.2102f);
+
+                replaySettings.gameObject.transform.localPosition = new Vector3(0.3782f, 0.88f, 0.1564f);
+                replaySettings.gameObject.transform.localRotation = Quaternion.Euler(23.4376f, 90f, 90f);
+
+                replayTable.tableOffset = 0f;
+                replayTable.transform.localRotation = Quaternion.Euler(270, 121.5819f, 0);
+            }
+            else if (currentScene == "Park")
+            {
+                replayTable.TableRoot.SetActive(true);
+                replayTable.metadataText.gameObject.SetActive(true);
+
+                replayTable.tableFloat.startPos = new Vector3(-28.9436f, -1.5689f, -6.9218f);
+                replayTable.metadataTextFloat.startPos = new Vector3(-28.9499f, -2.0639f, -6.9414f);
+
+                replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
+                replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
+
+                replayTable.tableOffset = -3.06f;
+                replayTable.transform.localRotation = Quaternion.Euler(270f, 0, 0);
+
+                if (ReplayPlayback.isReplayScene)
+                    MelonCoroutines.Start(DelayedParkLoad());
+
+            }
+            else if (currentScene == "Map0" && PlayerManager.instance.AllPlayers.Count == 1)
+            {
+                replayTable.TableRoot.SetActive(true);
+                replayTable.metadataText.gameObject.SetActive(true);
+
+                replayTable.tableFloat.startPos = new Vector3(15.671f, -4.4577f, -8.5671f);
+                replayTable.metadataTextFloat.startPos = new Vector3(15.671f, -4.4577f, -8.5671f);
+
+                replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
+                replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
+
+                replayTable.tableOffset = -5.8f;
+                replayTable.transform.localRotation = Quaternion.Euler(270f, 215.5305f, 0f);
+            }
+            else if (currentScene == "Map1" && PlayerManager.instance.AllPlayers.Count == 1)
+            {
+                replayTable.TableRoot.SetActive(true);
+                replayTable.metadataText.gameObject.SetActive(true);
+
+                replayTable.tableFloat.startPos = new Vector3(-13.8339f, 1.1872f, -0.3379f);
+                replayTable.metadataTextFloat.startPos = new Vector3(-13.8339f, 1.1872f, -0.3379f);
+
+                replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
+                replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
+
+                replayTable.tableOffset = -0.35f;
+                replayTable.transform.localRotation = Quaternion.Euler(270f, 352.1489f, 0f);
+            }
+            else
+            {
+                replayTable.TableRoot.SetActive(false);
+                replayTable.metadataText.gameObject.SetActive(false);
+            }
 
             if (ReplayPlayback.isReplayScene)
-                MelonCoroutines.Start(DelayedParkLoad());
-
-        } 
-        else if (currentScene == "Map0" && PlayerManager.instance.AllPlayers.Count == 1)
-        {
-            replayTable.TableRoot.SetActive(true);
-            replayTable.metadataText.gameObject.SetActive(true);
-
-            replayTable.tableFloat.startPos = new Vector3(15.671f, -4.4577f, -8.5671f);
-            replayTable.metadataTextFloat.startPos = new Vector3(15.671f, -4.4577f, -8.5671f);
-            
-            replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
-            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
-            
-            replayTable.tableOffset = -5.8f;
-            replayTable.transform.localRotation = Quaternion.Euler(270f, 215.5305f, 0f);
-        } 
-        else if (currentScene == "Map1" && PlayerManager.instance.AllPlayers.Count == 1)
-        {
-            replayTable.TableRoot.SetActive(true);
-            replayTable.metadataText.gameObject.SetActive(true);
-
-            replayTable.tableFloat.startPos = new Vector3(-13.8339f, 1.1872f, -0.3379f);
-            replayTable.metadataTextFloat.startPos = new Vector3(-13.8339f, 1.1872f, -0.3379f);
-            
-            replaySettings.gameObject.transform.localPosition = new Vector3(0.5855f, -0.9382f, 0.1346f);
-            replaySettings.gameObject.transform.localRotation = Quaternion.Euler(325.5624f, 90f, 90f);
-            
-            replayTable.tableOffset = -0.35f;
-            replayTable.transform.localRotation = Quaternion.Euler(270f, 352.1489f, 0f);
-        }
-        else
-        {
-            replayTable.TableRoot.SetActive(false);
-            replayTable.metadataText.gameObject.SetActive(false);
-        }
-        
-        if (ReplayPlayback.isReplayScene)
-        {
-            MatchHandler matchHandler = currentScene switch
             {
-                "Map1" => GameObjects.Map1.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
-                "Map0" => GameObjects.Map0.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
-                _ => null
-            };
-
-            if (matchHandler != null)
-            {
-                matchHandler.CurrentMatchPhase = MatchHandler.MatchPhase.MatchStart;
-                matchHandler.FadeIn();
+                switch (currentScene)
+                {
+                    case "Map1":
+                    {
+                        GameObjects.Map1.Logic.SceneProcessors.GetGameObject().SetActive(false);
+                        break;
+                    }
+                    case "Park":
+                    {
+                        GameObjects.Park.LOGIC.ParkInstance
+                            .GetGameObject()
+                            .SetActive(false);
+                        break;
+                    }
+                }
+                
+                replayTable?.gameObject.SetActive(ToggleUI.Value);
+                replayTable?.metadataText?.gameObject.SetActive(ToggleUI.Value);
             }
+
+            string[] spellings =
+            {
+                "Heisenhouser", "Heisenhowser", "Heisenhouwser", "Heisenhouwer"
+            };
+            replayTable.heisenhouserText.text = spellings[Random.Range(0, spellings.Length)];
+            replayTable.heisenhouserText.ForceMeshUpdate();
+
+            ReplayPlaybackControls.destroyOnPunch.leftHand = LocalPlayer.Controller.GetSubsystem<PlayerHandPresence>().leftInteractionHand;
+            ReplayPlaybackControls.destroyOnPunch.rightHand = LocalPlayer.Controller.GetSubsystem<PlayerHandPresence>().rightInteractionHand;
+
+            ReplayCrystals.LoadCrystals(currentScene);
+            ReplayFiles.LoadReplays();
+            ReplayFiles.RefreshUI();
+
+            ReplayPlaybackControls.Close();
+
+            if (currentScene != "Loader" && ReplayBufferEnabled.Value)
+                Recording.StartBuffering();
+
+            if (Recording.isRecording || Recording.isBuffering)
+                Recording.SetupRecordingData();
+
+            if (Playback.playerPoolRoot == null)
+            {
+                var playerPoolRoot = new GameObject("[ReplayMod] Player Pool Root");
+                Object.DontDestroyOnLoad(playerPoolRoot);
+
+                Playback.playerPoolRoot = playerPoolRoot;
+            }
+
+            var vr = LocalPlayer.Controller.transform.GetChild(2);
+            replayTable.metadataText.GetComponent<LookAtPlayer>().lockX = true;
+            replayTable.metadataText.GetComponent<LookAtPlayer>().lockZ = true;
+
+            leftHand = vr.GetChild(1);
+            rightHand = vr.GetChild(2);
+            head = vr.GetChild(0).GetChild(0);
+
+            MelonCoroutines.Start(ShiftstoneApplyDelay());
+
+            Playback.SetPlaybackSpeed(1f);
         }
-        
-        string[] spellings = { "Heisenhouser", "Heisenhowser", "Heisenhouwser", "Heisenhouwer" };
-        replayTable.heisenhouserText.text = spellings[Random.Range(0, spellings.Length)];
-        replayTable.heisenhouserText.ForceMeshUpdate();
-
-        ReplayPlaybackControls.destroyOnPunch.leftHand = LocalPlayer.Controller.GetSubsystem<PlayerHandPresence>().leftInteractionHand;
-        ReplayPlaybackControls.destroyOnPunch.rightHand = LocalPlayer.Controller.GetSubsystem<PlayerHandPresence>().rightInteractionHand;
-        
-        ReplayCrystals.LoadCrystals(currentScene);
-        ReplayFiles.LoadReplays();
-        ReplayFiles.RefreshUI();
-        
-        ReplayPlaybackControls.Close();
-        
-        if (currentScene != "Loader" && ReplayBufferEnabled.Value)
-            Recording.StartBuffering();
-        
-        if (Recording.isRecording || Recording.isBuffering)
-            Recording.SetupRecordingData();
-
-        if (Playback.playerPoolRoot == null)
+        catch (Exception e)
         {
-            GameObject playerPoolRoot = new GameObject("[ReplayMod] Player Pool Root");
-            GameObject.DontDestroyOnLoad(playerPoolRoot);
-            
-            Playback.playerPoolRoot = playerPoolRoot;
+            ReplayError($"Error occured in MapInitialiation: {e}");
         }
-
-        var vr = LocalPlayer.Controller.transform.GetChild(2);
-        replayTable.metadataText.GetComponent<LookAtPlayer>().lockX = true;
-        replayTable.metadataText.GetComponent<LookAtPlayer>().lockZ = true;
-
-        leftHand = vr.GetChild(1);
-        rightHand = vr.GetChild(2);
-        head = vr.GetChild(0).GetChild(0);
+        finally
+        {
+            isSceneReady = true;
+        }
 
         IEnumerator ShiftstoneApplyDelay()
         {
@@ -596,13 +645,6 @@ public class Main : MelonMod
                 rightShiftstonePool = null;
             }
         }
-
-        MelonCoroutines.Start(ShiftstoneApplyDelay());
-
-        Playback.SetPlaybackSpeed(1f);
-        ReplayPlayback.isReplayScene = false;
-
-        isSceneReady = true;
     }
 
     IEnumerator DelayedParkLoad()
@@ -653,7 +695,7 @@ public class Main : MelonMod
 
         AssetBundle bundle = AssetBundle.LoadFromMemory(bundleData);
         
-        GameObject table = GameObject.Instantiate(bundle.LoadAsset<GameObject>("Table"), ReplayTable.transform);
+        GameObject table = Object.Instantiate(bundle.LoadAsset<GameObject>("Table"), ReplayTable.transform);
 
         table.name = "Table";
         table.transform.localScale *= 0.5f;
@@ -674,7 +716,7 @@ public class Main : MelonMod
         if (Calls.Mods.findOwnMod("Rumble Dark Mode", "Bleh", false))
             table.GetComponent<Renderer>().lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
 
-        GameObject levitateVFX = GameObject.Instantiate(
+        GameObject levitateVFX = Object.Instantiate(
             GameObjects.Gym.INTERACTABLES.Parkboard.PlayerRelocationTrigger.StandHere.GetGameObject(),
             ReplayTable.transform
         );
@@ -684,7 +726,7 @@ public class Main : MelonMod
         levitateVFX.transform.localRotation = Quaternion.Euler(270, 0, 0);
         levitateVFX.transform.localScale = Vector3.one * 0.8f;
 
-        GameObject Next = GameObject.Instantiate(
+        GameObject Next = Object.Instantiate(
             GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.FriendScrollBar.ScrollUpButton.GetGameObject(),
             ReplayTable.transform
         );
@@ -699,7 +741,7 @@ public class Main : MelonMod
         nextButton.OnPressed.RemoveAllListeners();
         nextButton.OnPressed.AddListener((UnityAction)(() => { ReplayFiles.NextReplay(); }));
 
-        GameObject Previous = GameObject.Instantiate(Next, ReplayTable.transform);
+        GameObject Previous = Object.Instantiate(Next, ReplayTable.transform);
 
         Previous.name = "Previous Replay";
         Previous.transform.localPosition = new Vector3(0.3204f, 0.2192f, -0.1844f);
@@ -752,9 +794,9 @@ public class Main : MelonMod
         lookAt.lockX = true;
         lookAt.lockZ = true;
 
-        GameObject.DontDestroyOnLoad(metadataText);
+        Object.DontDestroyOnLoad(metadataText);
 
-        var loadReplayButton = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(), ReplayTable.transform);
+        var loadReplayButton = Object.Instantiate(GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(), ReplayTable.transform);
 
         loadReplayButton.name = "Load Replay";
         loadReplayButton.transform.localPosition = new Vector3(0.5267f, -0.0131f, -0.1956f);
@@ -788,7 +830,7 @@ public class Main : MelonMod
         ReplayFiles.table = replayTable;
         ReplayFiles.HideMetadata();
 
-        clapperboardVFX = GameObject.Instantiate(bundle.LoadAsset<GameObject>("Clapper"));
+        clapperboardVFX = Object.Instantiate(bundle.LoadAsset<GameObject>("Clapper"));
         clapperboardVFX.name = "ClapperboardVFX";
         clapperboardVFX.transform.localScale = Vector3.one * 5f;
 
@@ -798,7 +840,7 @@ public class Main : MelonMod
         clapperboardVFX.transform.GetChild(0).GetComponent<Renderer>().material = clapperboardMat;
         clapperboardVFX.SetActive(false);
 
-        GameObject vfx = GameObject.Instantiate(PoolManager.instance.GetPool("Stubbornstone_VFX").poolItem.gameObject, ReplayTable.transform);
+        GameObject vfx = Object.Instantiate(PoolManager.instance.GetPool("Stubbornstone_VFX").poolItem.gameObject, ReplayTable.transform);
 
         vfx.name = "Crystalize VFX";
         vfx.transform.localScale = Vector3.one * 0.2f;
@@ -810,7 +852,7 @@ public class Main : MelonMod
 
         ReplayCrystals.crystalizeVFX = vfxComp;
 
-        var crystalizeButton = GameObject.Instantiate(loadReplayButton, ReplayTable.transform);
+        var crystalizeButton = Object.Instantiate(loadReplayButton, ReplayTable.transform);
 
         crystalizeButton.name = "CrystalizeReplay";
         crystalizeButton.transform.localPosition = new Vector3(0.21f, -0.4484f, -0.1325f);
@@ -826,7 +868,7 @@ public class Main : MelonMod
 
         replayTable.crystalizeButton = crystalizeButtonComp;
 
-        GameObject crystalPrefab = GameObject.Instantiate(bundle.LoadAsset<GameObject>("Crystal"));
+        GameObject crystalPrefab = Object.Instantiate(bundle.LoadAsset<GameObject>("Crystal"));
 
         crystalPrefab.transform.localScale *= 0.5f;
 
@@ -921,14 +963,14 @@ public class Main : MelonMod
 
         // Playback Controls
 
-        var playbackControls = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.Notifications.NotificationSlabOther.NotificationSlab.SlabbuddyInfovariant.InfoForm.GetGameObject());
+        var playbackControls = Object.Instantiate(GameObjects.Gym.INTERACTABLES.Notifications.NotificationSlabOther.NotificationSlab.SlabbuddyInfovariant.InfoForm.GetGameObject());
         playbackControls.name = "Playback Controls";
         playbackControls.transform.localScale = Vector3.one;
 
         playbackControls.transform.GetChild(1).transform.localRotation = Quaternion.Euler(0, 180, 0);
         playbackControls.transform.GetChild(1).transform.localScale = Vector3.one * 0.7f;
         playbackControls.transform.GetChild(1).transform.localPosition = new Vector3(0.0385f, 0.0913f, 0);
-        GameObject.Destroy(playbackControls.GetComponent<DisposableObject>());
+        Object.Destroy(playbackControls.GetComponent<DisposableObject>());
 
         GameObject destroyOnPunch = new GameObject("DestroyOnPunch");
         destroyOnPunch.layer = LayerMask.NameToLayer("InteractionBase");
@@ -942,12 +984,12 @@ public class Main : MelonMod
         boxCollider.center = playbackRenderer.localBounds.center;
         boxCollider.size = playbackRenderer.localBounds.size;
 
-        GameObject.Destroy(playbackControls.transform.GetChild(2).gameObject);
+        Object.Destroy(playbackControls.transform.GetChild(2).gameObject);
 
         for (int i = 0; i < playbackControls.transform.GetChild(1).childCount; i++)
-            GameObject.Destroy(playbackControls.transform.GetChild(1).GetChild(i).gameObject);
+            Object.Destroy(playbackControls.transform.GetChild(1).GetChild(i).gameObject);
 
-        var timeline = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.StatusBar.GetGameObject(),
+        var timeline = Object.Instantiate(GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.StatusBar.GetGameObject(),
             playbackControls.transform.GetChild(1));
         Material timelineMaterial = timeline.GetComponent<MeshRenderer>().material;
         timelineMaterial.SetFloat("_Has_BP_Requirement", 1f);
@@ -1015,11 +1057,11 @@ public class Main : MelonMod
 
         var friendScrollBar = GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.FriendScrollBar.GetGameObject();
 
-        var p5x = GameObject.Instantiate(friendScrollBar.transform.GetChild(0).gameObject, playbackControls.transform.GetChild(1));
-        var np5x = GameObject.Instantiate(friendScrollBar.transform.GetChild(1).gameObject, playbackControls.transform.GetChild(1));
-        var p1x = GameObject.Instantiate(friendScrollBar.transform.GetChild(2).gameObject, playbackControls.transform.GetChild(1));
-        var np1x = GameObject.Instantiate(friendScrollBar.transform.GetChild(3).gameObject, playbackControls.transform.GetChild(1));
-        var playButton = GameObject.Instantiate(friendScrollBar.transform.GetChild(0).gameObject, playbackControls.transform.GetChild(1));
+        var p5x = Object.Instantiate(friendScrollBar.transform.GetChild(0).gameObject, playbackControls.transform.GetChild(1));
+        var np5x = Object.Instantiate(friendScrollBar.transform.GetChild(1).gameObject, playbackControls.transform.GetChild(1));
+        var p1x = Object.Instantiate(friendScrollBar.transform.GetChild(2).gameObject, playbackControls.transform.GetChild(1));
+        var np1x = Object.Instantiate(friendScrollBar.transform.GetChild(3).gameObject, playbackControls.transform.GetChild(1));
+        var playButton = Object.Instantiate(friendScrollBar.transform.GetChild(0).gameObject, playbackControls.transform.GetChild(1));
 
         var speedUpTexture = bundle.LoadAsset<Texture2D>("SpeedUp");
 
@@ -1088,10 +1130,10 @@ public class Main : MelonMod
         ReplayPlaybackControls.playButtonSprite.material.SetTexture("_Texture", ReplayPlaybackControls.pauseSprite);
         ReplayPlaybackControls.playButtonSprite.transform.localScale = Vector3.one * 0.07f;
 
-        var stopReplayButton = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(),
+        var stopReplayButton = Object.Instantiate(GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(),
             playbackControls.transform.GetChild(1));
 
-        var exitSceneButton = GameObject.Instantiate(stopReplayButton, playbackControls.transform.GetChild(1));
+        var exitSceneButton = Object.Instantiate(stopReplayButton, playbackControls.transform.GetChild(1));
 
         stopReplayButton.name = "Stop Replay";
         stopReplayButton.transform.localPosition = new Vector3(-0.1527f, -0.6109f, 0f);
@@ -1142,13 +1184,13 @@ public class Main : MelonMod
         ReplayPlaybackControls.destroyOnPunch = destroyOnPunchComp;
         
         // Replay Settings
-        var replaySettingsPanel = GameObject.Instantiate(playbackControls, ReplayTable.transform);
+        var replaySettingsPanel = Object.Instantiate(playbackControls, ReplayTable.transform);
         replaySettingsPanel.SetActive(true);
-        GameObject.Destroy(replaySettingsPanel.transform.GetChild(6).gameObject);
+        Object.Destroy(replaySettingsPanel.transform.GetChild(6).gameObject);
         replaySettingsPanel.name = "Replay Settings";
         replaySettingsPanel.transform.localScale = Vector3.one;
         replaySettingsPanel.transform.GetChild(0).GetChild(0).gameObject.layer = LayerMask.NameToLayer("Default");
-        GameObject.Destroy(replaySettingsPanel.GetComponent<DisposableObject>());
+        Object.Destroy(replaySettingsPanel.GetComponent<DisposableObject>());
 
         var replaySettingsGO = new GameObject("Replay Settings");
         replaySettingsGO.SetActive(false);
@@ -1158,12 +1200,12 @@ public class Main : MelonMod
         replaySettingsPanel.transform.GetChild(0).GetChild(0).transform.localRotation = Quaternion.Euler(0, 180, 0);
         
         for (int i = 0; i < replaySettingsPanel.transform.GetChild(1).childCount; i++)
-            GameObject.Destroy(replaySettingsPanel.transform.GetChild(1).GetChild(i).gameObject);
+            Object.Destroy(replaySettingsPanel.transform.GetChild(1).GetChild(i).gameObject);
         
         replaySettingsPanel.transform.localPosition = new Vector3(0.3782f, 0.88f, 0.1564f);
         replaySettingsPanel.transform.localRotation = Quaternion.Euler(34.4376f, 90, 90);
         
-        var povCameraButton = GameObject.Instantiate(
+        var povCameraButton = Object.Instantiate(
             GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
             replaySettingsGO.transform
         );
@@ -1193,7 +1235,7 @@ public class Main : MelonMod
             }
         }));
         
-        var hideLocalPlayerButton = GameObject.Instantiate(
+        var hideLocalPlayerButton = Object.Instantiate(
             GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.RotationOptions.ResetRotationButton.GetGameObject(), 
             replaySettingsGO.transform
         );
@@ -1238,7 +1280,7 @@ public class Main : MelonMod
             100f
         );
         
-        var openControlsButton = GameObject.Instantiate(
+        var openControlsButton = Object.Instantiate(
             GameObjects.Gym.INTERACTABLES.DressingRoom.Controlpanel.Controls.Frameattachment.Viewoptions.ResetFighterButton.GetGameObject(),
             replaySettingsGO.transform
         );
@@ -1296,7 +1338,7 @@ public class Main : MelonMod
         openControlsText.fontSizeMax = 1.3f;
         openControlsText.ForceMeshUpdate();
         
-        var slideOutPanel = GameObject.Instantiate(bundle.LoadAsset<GameObject>("SlideOutPlayerSelector"), replaySettingsGO.transform);
+        var slideOutPanel = Object.Instantiate(bundle.LoadAsset<GameObject>("SlideOutPlayerSelector"), replaySettingsGO.transform);
         
         slideOutPanel.name = "Player Selector Panel";
         slideOutPanel.transform.localScale = Vector3.one * 1.5f;
@@ -1325,7 +1367,7 @@ public class Main : MelonMod
         {
             int index = i;
             
-            var playerTag = GameObject.Instantiate(
+            var playerTag = Object.Instantiate(
                 GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject(),
                 slideOutPanel.transform
             );
@@ -1344,7 +1386,7 @@ public class Main : MelonMod
             ReplaySettings.playerTags.Add(button.transform.parent.GetComponent<PlayerTag>());
         }
         
-        var nextPageButton = GameObject.Instantiate(playButton, slideOutPanel.transform);
+        var nextPageButton = Object.Instantiate(playButton, slideOutPanel.transform);
         nextPageButton.name = "Next Page";
         nextPageButton.transform.localPosition = new Vector3(0.0822f, -0.4184f, 0.0371f);
         nextPageButton.transform.localRotation = Quaternion.Euler(270, 0, 0);
@@ -1360,7 +1402,7 @@ public class Main : MelonMod
             ReplaySettings.SelectPlayerPage(ReplaySettings.currentPlayerPage + 1);
         }));
         
-        var previousPageButton = GameObject.Instantiate(playButton, slideOutPanel.transform);
+        var previousPageButton = Object.Instantiate(playButton, slideOutPanel.transform);
         previousPageButton.name = "Previous Page";
         previousPageButton.transform.localPosition = new Vector3(-0.0822f, -0.4184f, 0.0371f);
         previousPageButton.transform.localRotation = Quaternion.Euler(90, 180, 0);
@@ -1398,14 +1440,14 @@ public class Main : MelonMod
         nextPageButton.transform.SetParent(pageSelectorGO.transform, true);
         previousPageButton.transform.SetParent(pageSelectorGO.transform, true);
         
-        var timelineRS = GameObject.Instantiate(timeline, replaySettingsGO.transform);
+        var timelineRS = Object.Instantiate(timeline, replaySettingsGO.transform);
         timelineRS.name = "Timeline";
         timelineRS.layer = LayerMask.NameToLayer("Default");
         timelineRS.transform.localPosition = new Vector3(-0.0138f, -0.0039f, -0.0451f);
         timelineRS.transform.localScale = new Vector3(0.5168f, 0.0318f, 1.9291f);
         timelineRS.transform.localRotation = Quaternion.identity;
         
-        var durationRS = GameObject.Instantiate(totalDuration, replaySettingsGO.transform);
+        var durationRS = Object.Instantiate(totalDuration, replaySettingsGO.transform);
         durationRS.name = "TotalDuration";
         durationRS.gameObject.layer = LayerMask.NameToLayer("Default");
         durationRS.transform.localPosition = new Vector3(0f, 0.0433f, -0.0444f);
@@ -1413,7 +1455,7 @@ public class Main : MelonMod
         durationRS.GetComponent<TextMeshPro>().enableWordWrapping = false;
         durationRS.GetComponent<TextMeshPro>().ForceMeshUpdate();
         
-        var replayNameTitle = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsGO.transform);
+        var replayNameTitle = Object.Instantiate(playbackTitle.gameObject, replaySettingsGO.transform);
         replayNameTitle.transform.localPosition = new Vector3(0, 0.4527f, -0.0425f);
         replayNameTitle.transform.localScale = Vector3.one * 0.5f;
         replayNameTitle.name = "Replay Title";
@@ -1427,14 +1469,14 @@ public class Main : MelonMod
         replayNameTitleComp.GetComponent<RectTransform>().sizeDelta = new Vector2(1.2f, 0.1577f);
         replayNameTitleComp.alignment = TextAlignmentOptions.Top;
         
-        var dateText = GameObject.Instantiate(playbackTitle.gameObject, replaySettingsGO.transform);
+        var dateText = Object.Instantiate(playbackTitle.gameObject, replaySettingsGO.transform);
         dateText.transform.localPosition = new Vector3(0, 0.3854f, -0.0436f);
         dateText.transform.localScale = Vector3.one * 0.25f;
         dateText.name = "Date";
         dateText.layer = LayerMask.NameToLayer("Default");
         dateText.GetComponent<TextMeshPro>().enableWordWrapping = false;
         
-        var deleteButton = GameObject.Instantiate(crystalizeButton, replaySettingsGO.transform);
+        var deleteButton = Object.Instantiate(crystalizeButton, replaySettingsGO.transform);
         deleteButton.name = "DeleteReplay";
         deleteButton.transform.localPosition = new Vector3(0.1071f, -0.1486f, -0.0545f);
         deleteButton.transform.localRotation = Quaternion.identity;
@@ -1485,7 +1527,7 @@ public class Main : MelonMod
         dateComp.fontSizeMin = 0.7f;
         dateComp.fontSizeMax = 1.2f;
         
-        var renameInstructions = GameObject.Instantiate(dateText, replaySettingsGO.transform);
+        var renameInstructions = Object.Instantiate(dateText, replaySettingsGO.transform);
         renameInstructions.name = "Rename Instructions";
         renameInstructions.transform.localPosition = new Vector3(0, 0.2898f, -0.0422f);
         renameInstructions.transform.localScale = Vector3.one * 0.55f;
@@ -1495,7 +1537,7 @@ public class Main : MelonMod
         renameInstructionsComp.text = "Please type on your keyboard to rename\n<#32a832>Enter - Confirm     <#cc1b1b>Esc - Cancel";
         renameInstructionsComp.enableWordWrapping = false;
         
-        var deleteReplayText = GameObject.Instantiate(renameInstructions, deleteButton.transform);
+        var deleteReplayText = Object.Instantiate(renameInstructions, deleteButton.transform);
         deleteReplayText.name = "DeleteText";
         deleteReplayText.transform.localPosition = new Vector3(0.0143f, 0.0713f, 0);
         deleteReplayText.SetActive(true);
@@ -1506,7 +1548,7 @@ public class Main : MelonMod
         deleteReplayTextComp.enableWordWrapping = false;
         deleteReplayTextComp.ForceMeshUpdate();
         
-        var copyPathButton = GameObject.Instantiate(deleteButton, replaySettingsGO.transform);
+        var copyPathButton = Object.Instantiate(deleteButton, replaySettingsGO.transform);
         copyPathButton.name = "CopyPathButton";
         copyPathButton.transform.localPosition = new Vector3(-0.0224f, -0.1486f, -0.0545f);
         copyPathButton.transform.localRotation = Quaternion.identity;
@@ -1539,7 +1581,7 @@ public class Main : MelonMod
         
         replaySettings = replaySettingsPanel.AddComponent<ReplaySettings>();
         
-        var renameButton = GameObject.Instantiate(deleteButton, replaySettingsGO.transform);
+        var renameButton = Object.Instantiate(deleteButton, replaySettingsGO.transform);
         renameButton.name = "RenameButton";
         renameButton.transform.localPosition = new Vector3(-0.1522f, -0.1486f, -0.0545f);
         renameButton.transform.localRotation = Quaternion.identity;
@@ -1576,7 +1618,7 @@ public class Main : MelonMod
         srRename.transform.localScale = Vector3.one * 0.01f;
         srRename.name = "RenameIcon";
 
-        var favoriteButton = GameObject.Instantiate(
+        var favoriteButton = Object.Instantiate(
             GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.SettingsScreen.PreReportSection.ReportPlayerButton.GetGameObject(),
             replaySettingsGO.transform
         );
@@ -1597,7 +1639,7 @@ public class Main : MelonMod
         favRenderer.material.SetTexture("_Texture", favIcon);
         favRenderer.transform.localScale = Vector3.one * 0.0708f;
 
-        var replayFavIcon = GameObject.Instantiate(trackedIcon, replaySettingsGO.transform);
+        var replayFavIcon = Object.Instantiate(trackedIcon, replaySettingsGO.transform);
         replayFavIcon.name = "Favorited Icon";
         replayFavIcon.transform.localPosition = new Vector3(-0.3248f, 0.5046f, -0.047f);
         replayFavIcon.transform.localRotation = Quaternion.Euler(0, 0, 22.0727f);
@@ -1648,7 +1690,7 @@ public class Main : MelonMod
         
         for (int i = 0; i <= 5; i++)
         {
-            var replayButton = GameObject.Instantiate(
+            var replayButton = Object.Instantiate(
                 GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject(),
                 replayExplorerGO.transform
             );
@@ -1679,7 +1721,7 @@ public class Main : MelonMod
             meshes.GetChild(3).localPosition = new Vector3(0.0318f, 0.0341f, -0.0095f);
             meshes.GetChild(3).localScale = new Vector3(0.0324f, 0.2165f, 0.1285f);
             
-            GameObject.Destroy(meshes.GetChild(7).gameObject);
+            Object.Destroy(meshes.GetChild(7).gameObject);
 
             TextandIcons.GetChild(0).localPosition = new Vector3(-0.1715f, 0.0113f, -0.0292f);
             var tmp = TextandIcons.GetChild(0).GetComponent<TextMeshPro>();
@@ -1704,7 +1746,7 @@ public class Main : MelonMod
             collider.center = replayButton.transform.GetChild(0).transform.InverseTransformPoint(renderer.bounds.center);
             collider.size = renderer.bounds.size;
 
-            var favoriteIcon = GameObject.Instantiate(
+            var favoriteIcon = Object.Instantiate(
                 GameObjects.Gym.INTERACTABLES.Gearmarket.Itemhighlightwindow.TrackedIcon.GetGameObject(),
                 TextandIcons
             );
@@ -1717,7 +1759,7 @@ public class Main : MelonMod
         var PathGO = new GameObject("Path");
         PathGO.transform.SetParent(replayExplorerGO.transform, false);
 
-        var pathBackgroundBlock = GameObject.Instantiate(GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject()
+        var pathBackgroundBlock = Object.Instantiate(GameObjects.Gym.INTERACTABLES.Telephone20REDUXspecialedition.FriendScreen.PlayerTags.PlayerTag20.GetGameObject()
             .transform.GetChild(0).GetChild(0).GetChild(1), PathGO.transform);
 
         pathBackgroundBlock.transform.localPosition = new Vector3(-0.0149f, 0.4088f, -0.0438f);
@@ -1742,7 +1784,7 @@ public class Main : MelonMod
         pathTMP.text = "Replays";
         pathTMP.color = new Color(0.102f, 0.051f, 0.0275f);
 
-        var replayPageSelectorGO = GameObject.Instantiate(pageSelectorGO, replayExplorerGO.transform);
+        var replayPageSelectorGO = Object.Instantiate(pageSelectorGO, replayExplorerGO.transform);
         replayPageSelectorGO.name = "Page Selector";
         
         replayPageSelectorGO.transform.localPosition = new Vector3(-0.0138f, 0.297f, -0.0365f);
@@ -1771,17 +1813,17 @@ public class Main : MelonMod
         foreach (var renderer in playbackControls.GetComponentsInChildren<Renderer>(true))
             renderer.enabled = true;
         
-        GameObject.DontDestroyOnLoad(ReplayTable);
-        GameObject.DontDestroyOnLoad(crystalPrefab);
-        GameObject.DontDestroyOnLoad(playbackControls);
-        GameObject.DontDestroyOnLoad(clapperboardVFX);
-        GameObject.DontDestroyOnLoad(markerPrefab);
+        Object.DontDestroyOnLoad(ReplayTable);
+        Object.DontDestroyOnLoad(crystalPrefab);
+        Object.DontDestroyOnLoad(playbackControls);
+        Object.DontDestroyOnLoad(clapperboardVFX);
+        Object.DontDestroyOnLoad(markerPrefab);
         bundle.Unload(false);
     }
     
     public void PlayClapperboardVFX(Vector3 position, Quaternion rotation)
     {
-        var clapperboard = GameObject.Instantiate(clapperboardVFX);
+        var clapperboard = Object.Instantiate(clapperboardVFX);
         clapperboard.SetActive(true);
         clapperboard.transform.localScale = Vector3.zero;
         clapperboard.transform.position = position;
@@ -1811,7 +1853,7 @@ public class Main : MelonMod
                     Utilities.EaseInOut,
                     () =>
                     {
-                        GameObject.Destroy(clapperboard);
+                        Object.Destroy(clapperboard);
                         AudioManager.instance.Play(ReplayCache.SFX["Call_RockCam_Despawn"], position);
                     }
                 ));
@@ -1883,6 +1925,8 @@ public class Main : MelonMod
 
         GameObject replayCustomMap = null;
 
+        string replayPath = ReplayFiles.explorer.CurrentReplayPath;
+
         if (ReplayFiles.currentHeader.CustomMap == "FlatLandSingle")
         {
             if (flatLandRoot?.gameObject.activeSelf == false)
@@ -1891,7 +1935,7 @@ public class Main : MelonMod
             }
             else
             {
-                var button = flatLandRoot?.transform?.GetChild(1)?.GetChild(0)?.GetComponent<InteractionButton>();
+                var button = flatLandRoot?.transform.GetChild(1)?.GetChild(0)?.GetComponent<InteractionButton>();
                 if (button == null)
                 {
                     ReplayError("Could not load FlatLand Replay. Please make sure FlatLand is installed.");
@@ -1904,7 +1948,7 @@ public class Main : MelonMod
             }
         }
         
-        if (switchingScene && isCustomMap && !isRawMapData)
+        if (isCustomMap && !isRawMapData)
         {
             replayCustomMap = Utilities.GetCustomMap(ReplayFiles.currentHeader.CustomMap);
 
@@ -1927,7 +1971,7 @@ public class Main : MelonMod
 
             if (sceneIndex == -1)
             {
-                ReplayError($"Unknown scene '{targetScene}'");
+                ReplayError($"Unknown scene '{targetScene}'. Please try loading replay in target scene.");
                 return;
             }
 
@@ -1939,18 +1983,32 @@ public class Main : MelonMod
 
                 parkboard.doorPolicySlider.SetStep(1);
                 parkboard.HostPark();
-
-                ReplayPlayback.isReplayScene = true;
             }
             else
             {
                 MelonCoroutines.Start(
                     Utilities.LoadMap(sceneIndex, 2.5f, () =>
                     {
-                        Playback.LoadReplay(ReplayFiles.explorer.CurrentReplayPath);
+                        Playback.LoadReplay(replayPath);
                         ReplayFiles.ShowMetadata();
+                        
+                        if (isCustomMap)
+                            LoadCustomMap(targetScene, isRawMapData, replayCustomMap);
+                        
+                        var matchHandler = currentScene switch
+                        {
+                            "Map1" => GameObjects.Map1.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
+                            "Map0" => GameObjects.Map0.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
+                            _ => null
+                        };
 
-                        switch (targetScene)
+                        if (matchHandler != null)
+                        {
+                            matchHandler.CurrentMatchPhase = MatchHandler.MatchPhase.MatchStart;
+                            matchHandler.FadeIn();
+                        }
+                
+                        switch (currentScene)
                         {
                             case "Map0":
                             {
@@ -1960,66 +2018,78 @@ public class Main : MelonMod
                             case "Map1":
                             {
                                 GameObjects.Map1.Logic.MatchHandler.GetGameObject().SetActive(false);
-                                GameObjects.Map1.Logic.SceneProcessors.GetGameObject().SetActive(false);
                                 break;
                             }
-                            case "Park":
-                            {
-                                GameObjects.Park.LOGIC.ParkInstance
-                                    .GetGameObject()
-                                    .SetActive(false);
-                                break;
-                            }
-                        }
-
-                        if (isCustomMap)
-                        {
-                            if (replayCustomMap != null)
-                            {
-                                replayCustomMap.SetActive(true);
-                            }
-                            else if (isRawMapData)
-                            {
-                                var type = RegisteredMelons.FirstOrDefault(m => m.Info.Name == "CustomMultiplayerMaps")?.MelonAssembly?.Assembly?.GetTypes().FirstOrDefault(t => t.Name == "main");
-                                if (type != null)
-                                {
-                                    var method = type.GetMethod(
-                                        "LoadCustomMap", 
-                                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
-                                        null,
-                                        new[] { typeof(string[]) },
-                                        null
-                                    );
-                                    
-                                    string[] split = ReplayFiles.currentHeader.CustomMap.Split('|');
-                                    method?.Invoke(null, new object[] { split });
-                                }
-                            }
-                            
-                            if (targetScene == "Map0")
-                                GameObjects.Map0.Scene
-                                    .GetGameObject()
-                                    .SetActive(false);
-                            else if (targetScene == "Map1")
-                                GameObjects.Map1.Scene
-                                    .GetGameObject()
-                                    .SetActive(false);
                         }
 
                         SimpleScreenFadeInstance.Progress = 0f;
                     }, 2f)
                 );
             }
+            
+            ReplayPlayback.isReplayScene = true;
         }
         else
         {
             if (currentScene == "Park")
                 MelonCoroutines.Start(DelayedParkLoad());
             else
-                Playback.LoadReplay(ReplayFiles.explorer.CurrentReplayPath);
+                Playback.LoadReplay(ReplayFiles.explorer.CurrentReplayPath, true);
+            
+            if (isCustomMap)
+                LoadCustomMap(targetScene, isRawMapData, replayCustomMap);
+            else
+                LoadCustomMap(targetScene, disableCurrentScene: false);
             
             SimpleScreenFadeInstance.Progress = 0f;
         }
+    }
+
+    public void LoadCustomMap(
+        string targetScene, 
+        bool isRawMapData = false, 
+        GameObject replayCustomMap = null, 
+        bool disableCurrentMap = true,
+        bool disableCurrentScene = true
+    )
+    {
+        if (disableCurrentMap)
+        {
+            var currentMap = Utilities.GetCustomMap(Utilities.GetActiveCustomMapName());
+            if (currentMap != null)
+                currentMap.SetActive(false);
+        }
+        
+        if (replayCustomMap != null)
+        {
+            replayCustomMap.SetActive(true);
+        }
+        else if (isRawMapData)
+        {
+            var type = RegisteredMelons.FirstOrDefault(m => m.Info.Name == "CustomMultiplayerMaps")?.MelonAssembly?.Assembly?.GetTypes().FirstOrDefault(t => t.Name == "main");
+            if (type != null)
+            {
+                var method = type.GetMethod(
+                    "LoadCustomMap", 
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    new[] { typeof(string[]) },
+                    null
+                );
+                                    
+                string[] split = ReplayFiles.currentHeader.CustomMap.Split('|');
+                method?.Invoke(null, new object[] { split });
+            }
+        }
+                            
+        if (targetScene == "Map0")
+            GameObjects.Map0.Scene
+                .GetGameObject()
+                .SetActive(!disableCurrentScene);
+        else if (targetScene == "Map1")
+            GameObjects.Map1.Scene
+                .GetGameObject()
+                .SetActive(!disableCurrentScene);
     }
     
     // ----- Update Loops -----
@@ -2184,7 +2254,7 @@ public class Main : MelonMod
             var controller = LocalPlayer?.Controller;
             if (controller == null) return;
 
-            var vr = controller.transform?.childCount >= 3 ? controller.transform.GetChild(2) : null;
+            var vr = controller.transform.childCount >= 3 ? controller.transform.GetChild(2) : null;
             if (vr == null || vr.childCount < 3) return;
 
             var headParent = vr.GetChild(0);
@@ -2288,19 +2358,6 @@ public class Main : MelonMod
         bool isLeft
     )
     {
-        void PlayHaptics()
-        {
-            var haptics = LocalPlayer.Controller.GetSubsystem<PlayerHaptics>();
-            
-            if (EnableHaptics.Value)
-            {
-                if (isLeft)
-                    haptics.PlayControllerHaptics(1f, 0.05f, 0, 0);
-                else
-                    haptics.PlayControllerHaptics(0, 0, 1f, 0.05f);
-            }
-        }
-
         if (primary <= 0 || secondary <= 0)
             return;
 
@@ -2348,6 +2405,21 @@ public class Main : MelonMod
             default:
                 ReplayError($"'{action}' is not a valid binding ({(isLeft ? "Left Controller" : "Right Controller")}).");
                 break;
+        }
+
+        return;
+
+        void PlayHaptics()
+        {
+            var haptics = LocalPlayer.Controller.GetSubsystem<PlayerHaptics>();
+            
+            if (EnableHaptics.Value)
+            {
+                if (isLeft)
+                    haptics.PlayControllerHaptics(1f, 0.05f, 0, 0);
+                else
+                    haptics.PlayControllerHaptics(0, 0, 1f, 0.05f);
+            }
         }
     }
 }
@@ -2417,10 +2489,10 @@ public class ReplayTable : MonoBehaviour
     public TextMeshPro heisenhouserText;
     
     public float desiredTableHeight = 1.5481f;
-    public float tableOffset = 0f;
+    public float tableOffset;
     public float desiredMetadataTextHeight = 1.8513f;
 
-    public bool isReadingCrystal = false;
+    public bool isReadingCrystal;
 
     public void Start()
     {

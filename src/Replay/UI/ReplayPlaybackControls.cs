@@ -1,12 +1,10 @@
 using System;
-using Il2CppRUMBLE.Input;
 using Il2CppRUMBLE.Interactions.InteractionBase;
 using Il2CppRUMBLE.Managers;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppTMPro;
 using MelonLoader;
 using UnityEngine;
-using UnityEngine.UI;
 using static UnityEngine.Mathf;
 using Main = ReplayMod.Core.Main;
 

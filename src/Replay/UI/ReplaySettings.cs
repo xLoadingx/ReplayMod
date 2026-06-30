@@ -58,7 +58,7 @@ public class ReplaySettings : MonoBehaviour
 
     public static GameObject timeline;
 
-    private bool isRenaming = false;
+    private bool isRenaming;
     private StringBuilder renameBuffer = new();
     private string rawReplayName;
 

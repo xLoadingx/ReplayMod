@@ -93,22 +93,47 @@ public static class ReplayAPI
     /// </summary>
     public static event Action<ReplaySerializer.ReplayHeader, string> onReplayRenamed;
 
-    internal static void ReplaySelectedInternal(ReplayExplorer.Entry entry, string path) => onReplaySelected?.Invoke(entry, path);
-    internal static void ExplorerFolderChangedInternal(string path) => onExplorerFolderChanged?.Invoke(path);
-    internal static void ExplorerRefreshedInternal() => onExplorerRefreshed?.Invoke();
-    internal static void ReplayStartedInternal(ReplayInfo info) => onReplayStarted?.Invoke(info);
-    internal static void ReplayEndedInternal(ReplayInfo info) => onReplayEnded?.Invoke(info);
-    internal static void RecordingStartedInternal() => onRecordingStarted?.Invoke();
-    internal static void RecordingStoppedInternal() => onRecordingStopped?.Invoke();
-    internal static void ReplayTimeChangedInternal(float time) => onReplayTimeChanged?.Invoke(time);
-    internal static void ReplayPauseChangedInternal(bool paused) => onReplayPauseChanged?.Invoke(paused);
+    private static void InvokeSafe(Delegate action, params object[] args)
+    {
+        if (action == null)
+            return;
 
-    internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => OnPlaybackFrame?.Invoke(frame, nextFrame);
-    internal static void OnRecordFrameInternal(Frame frame, bool isBuffer) => OnRecordFrame?.Invoke(frame, isBuffer);
-    
-    internal static void ReplaySavedInternal(ReplayInfo info, bool isBuffer, string path) => onReplaySaved?.Invoke(info, isBuffer, path);
-    internal static void ReplayDeletedInternal(string path) => onReplayDeleted?.Invoke(path);
-    internal static void ReplayRenamedInternal(ReplaySerializer.ReplayHeader header, string newPath) => onReplayRenamed?.Invoke(header, newPath);
+        foreach (var del in action.GetInvocationList())
+        {
+            try
+            {
+                del.DynamicInvoke(args);
+            }
+            catch (Exception ex)
+            {
+                Exception e = ex is System.Reflection.TargetInvocationException tie && tie.InnerException != null
+                    ? tie.InnerException
+                    : ex;
+                
+                Main.instance.LoggerInstance.Error(
+                    $"ReplayAPI event callback failed in " +
+                    $"{del.Method.DeclaringType?.FullName}.{del.Method.Name}: {e}"
+                );
+            }
+        }
+    }
+
+    internal static void ReplaySelectedInternal(ReplayExplorer.Entry entry, string path) => InvokeSafe(onReplaySelected, entry, path);
+    internal static void ExplorerFolderChangedInternal(string path) => InvokeSafe(onExplorerFolderChanged, path);
+    internal static void ExplorerRefreshedInternal() => InvokeSafe(onExplorerRefreshed);
+    internal static void ReplayStartedInternal(ReplayInfo info) => InvokeSafe(onReplayStarted, info);
+    internal static void ReplayEndedInternal(ReplayInfo info) => InvokeSafe(onReplayEnded, info);
+    internal static void RecordingStartedInternal() => InvokeSafe(onRecordingStarted);
+    internal static void RecordingStoppedInternal() => InvokeSafe(onRecordingStopped);
+    internal static void ReplayTimeChangedInternal(float time) => InvokeSafe(onReplayTimeChanged, time);
+    internal static void ReplayPauseChangedInternal(bool paused) => InvokeSafe(onReplayPauseChanged, paused);
+
+    internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => InvokeSafe(OnPlaybackFrame, frame, nextFrame);
+    internal static void OnRecordFrameInternal(Frame frame, bool isBuffer) => InvokeSafe(OnRecordFrame, frame, isBuffer);
+
+    internal static void ReplaySavedInternal(ReplayInfo info, bool isBuffer, string path) => InvokeSafe(onReplaySaved, info, isBuffer, path);
+    internal static void ReplayDeletedInternal(string path) => InvokeSafe(onReplayDeleted, path);
+    internal static void ReplayRenamedInternal(ReplaySerializer.ReplayHeader header, string newPath) => InvokeSafe(onReplayRenamed, header, newPath);
 
     /// <summary>
     /// Gets whether a recording is currently active.

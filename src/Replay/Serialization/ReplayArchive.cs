@@ -3,7 +3,7 @@ using System.Collections;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
-using Il2CppRUMBLE.Managers;
+using Il2CppSystem.Diagnostics;
 using MelonLoader;
 using Newtonsoft.Json;
 using ReplayMod.Replay.Files;
@@ -16,21 +16,37 @@ public class ReplayArchive
     public static IEnumerator BuildReplayPackageSafe(
         string outputPath,
         ReplayInfo replay,
-        Action done
+        Action<bool> done
     )
     {
+        Main.DebugLog("Safe start");
+        
         while (!Main.isSceneReady)
             yield return null;
 
+        Main.DebugLog("Scene ready for save.");
+        
         yield return null;
         yield return null;
 
-        var task = BuildReplayPackage(outputPath, replay);
+        Main.DebugLog($"Calling Build Replay Package | Output path: {outputPath}");
 
+        Task task;
+        try
+        {
+            task = BuildReplayPackage(outputPath, replay);
+        }
+        catch (Exception e)
+        {
+            Main.ReplayError($"BuildReplayPackage failed before returning task: {e}");
+            done?.Invoke(false);
+            yield break;
+        }
+        
         while (!task.IsCompleted)
             yield return null;
 
-        done?.Invoke();
+        done?.Invoke(true);
     }
     
     public static async Task BuildReplayPackage(
@@ -40,14 +56,21 @@ public class ReplayArchive
     {
         try
         {
-            byte[] rawReplay = ReplaySerializer.SerializeReplayFile(replay);
+            CompressionLevel compressionLevel = Main.instance.CompressionLevel.Value;
             
-            Main.instance.LoggerInstance.Msg($"Replay data serialized ({Utilities.FormatBytes(rawReplay.Length)})");
+            var sw = Stopwatch.StartNew();
 
-            byte[] compressedReplay = await Task.Run(() => ReplayCodec.Compress(rawReplay));
+            byte[] rawReplay = ReplaySerializer.SerializeReplayFile(replay);
+            long serializeMs = sw.ElapsedMilliseconds;
 
-            Main.instance.LoggerInstance.Msg($"Compression complete ({Utilities.FormatBytes(rawReplay.Length)} -> {Utilities.FormatBytes(compressedReplay.Length)}, " +
-                                             $"{100 - (compressedReplay.Length * 100.0 / rawReplay.Length):0.#}% reduction).");
+            sw.Restart();
+
+            byte[] compressedReplay = await Task.Run(() => ReplayCodec.Compress(rawReplay, compressionLevel));
+            long compressMs = sw.ElapsedMilliseconds;
+
+            Main.instance.LoggerInstance.Msg($"Serialization / Compression complete ({Utilities.FormatBytes(compressedReplay.Length)} -> {Utilities.FormatBytes(compressedReplay.Length)})");
+            Main.instance.LoggerInstance.Msg($"{100 - (compressedReplay.Length * 100.0 / rawReplay.Length):0.#}% reduction (with compression level {compressionLevel.ToString()})");
+            Main.instance.LoggerInstance.Msg($"Serialize: {serializeMs}ms, Compress: {compressMs}ms");
             
             MelonCoroutines.Start(FinishOnMainThread(outputPath, replay, compressedReplay));
         }
@@ -69,24 +92,26 @@ public class ReplayArchive
             Formatting.Indented,
             new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }
         );
-        
+
         using (var fs = new FileStream(outputPath, FileMode.Create))
-        using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
         {
-            var manifestEntry = zip.CreateEntry("manifest.json", CompressionLevel.Optimal);
-            using (var writer = new StreamWriter(manifestEntry.Open()))
-                writer.Write(manifestJson);
+            using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
+            {
+                var manifestEntry = zip.CreateEntry("manifest.json", CompressionLevel.Optimal);
+                using (var writer = new StreamWriter(manifestEntry.Open()))
+                    writer.Write(manifestJson);
+                
+                var replayEntry = zip.CreateEntry("replay", CompressionLevel.NoCompression);
+                using (var stream = replayEntry.Open())
+                    stream.Write(compressedReplay, 0, compressedReplay.Length);
+                
+                while (ReplayVoices.HasActiveWriters)
+                    yield return null;
+                
+                WriteVoices(zip);
 
-            var replayEntry = zip.CreateEntry("replay", CompressionLevel.NoCompression);
-            using (var stream = replayEntry.Open())
-                stream.Write(compressedReplay, 0, compressedReplay.Length);
-
-            while (ReplayVoices.HasActiveWriters)
-                yield return null;
-            
-            WriteVoices(zip);
-
-            ReplayAPI.InvokeArchiveBuild(zip);
+                ReplayAPI.InvokeArchiveBuild(zip);
+            }
         }
         
         ReplayVoices.Cleanup();

@@ -20,8 +20,6 @@ namespace ReplayMod.Replay.Serialization;
 
 public class ReplaySerializer
 {
-    public static string FileName { get; set; }
-
     const float EPS = 0.00005f;
     const float ROT_EPS_ANGLE = 0.05f;
 
@@ -62,17 +60,44 @@ public class ReplaySerializer
 
     static bool PosChanged(Vector3 a, Vector3 b)
     {
-        return (a - b).sqrMagnitude > EPS * EPS;
+        float dx = a.x - b.x;
+        float dy = a.y - b.y;
+        float dz = a.z - b.z;
+
+        return (dx * dx + dy * dy + dz * dz) > EPS * EPS;
     }
 
     static bool RotChanged(Quaternion a, Quaternion b)
     {
-        return Quaternion.Angle(a, b) > ROT_EPS_ANGLE;
+        double dot =
+            (double)a.x * b.x +
+            (double)a.y * b.y +
+            (double)a.z * b.z +
+            (double)a.w * b.w;
+
+        dot = Math.Abs(dot);
+
+        if (dot > 1.0)
+            dot = 1.0;
+
+        double angle = Math.Acos(dot) * 2.0 * (180.0 / Math.PI);
+
+        return angle > ROT_EPS_ANGLE;
+    }
+
+    static bool IsNonZero(Vector3 v)
+    {
+        return v.x != 0f || v.y != 0f || v.z != 0f;
+    }
+
+    static bool IsNonZero(Quaternion q)
+    {
+        return q.x != 0f || q.y != 0f || q.z != 0f || q.w != 0f;
     }
 
     static bool FloatChanged(float a, float b)
     {
-        return Mathf.Abs(a - b) > EPS;
+        return Math.Abs(a - b) > EPS;
     }
 
     // ----- Field-based diffs -----
@@ -314,12 +339,12 @@ public class ReplaySerializer
         );
 
         WriteIf(
-            e.position != default,
+            IsNonZero(e.position),
             () => w.Write(EventField.position, e.position)
         );
 
         WriteIf(
-            e.rotation != default,
+            IsNonZero(e.rotation),
             () => w.Write(EventField.rotation, e.rotation)
         );
 
@@ -335,7 +360,7 @@ public class ReplaySerializer
 
         WriteIf(
             e.damage != 0,
-            () => w.Write(EventField.damage, (byte)e.damage)
+            () => w.Write(EventField.damage, e.damage)
         );
 
         WriteIf(
@@ -359,37 +384,34 @@ public class ReplaySerializer
         using var bw = new BinaryWriter(ms);
 
         bw.Write(Encoding.ASCII.GetBytes("RPLY"));
-
-        StructureState[] lastStructureFrame = null;
-        PlayerState[] lastPlayerFrame = null;
-        PedestalState[] lastPedestalFrame = null;
-        ScenePropState[] lastScenePropFrame = null;
-
+        
         int total = replay.Frames.Length;
-        int lastLoggedPercent = -1;
+        
+        int structureCount = replay.Header.Structures.Length;
+        int playerCount = replay.Header.Players.Length;
+        int pedestalCount = replay.Header.PedestalCount;
+        int scenePropCount = replay.Header.ScenePropCount;
+
+        var lastStructureFrame = Utilities.NewArray<StructureState>(structureCount);
+        var lastPlayerFrame = Utilities.NewArray<PlayerState>(playerCount);
+        var lastPedestalFrame = Utilities.NewArray<PedestalState>(pedestalCount);
+        var lastScenePropFrame = Utilities.NewArray<ScenePropState>(scenePropCount);
 
         for (int i = 0; i < total; i++)
         {
             var f = replay.Frames[i];
-            using var frameMs = new MemoryStream();
-            using var frameBw = new BinaryWriter(frameMs);
 
-            frameBw.Write(f.Time);
+            long frameSizePos = bw.BaseStream.Position;
+            bw.Write(0);
 
-            using var entriesMs = new MemoryStream();
-            using var entriesBw = new BinaryWriter(entriesMs);
+            long frameStart = bw.BaseStream.Position;
+
+            bw.Write(f.Time);
+
+            long entryCountPos = bw.BaseStream.Position;
+            bw.Write(0);
 
             int entryCount = 0;
-
-            int structureCount = replay.Header.Structures.Length;
-            int playerCount = replay.Header.Players.Length;
-            int pedestalCount = replay.Header.PedestalCount;
-            int scenePropCount = replay.Header.ScenePropCount;
-
-            lastStructureFrame ??= Utilities.NewArray<StructureState>(structureCount);
-            lastPlayerFrame ??= Utilities.NewArray<PlayerState>(playerCount);
-            lastPedestalFrame ??= Utilities.NewArray<PedestalState>(pedestalCount);
-            lastScenePropFrame ??= Utilities.NewArray<ScenePropState>(scenePropCount);
 
             // Structures
 
@@ -401,29 +423,29 @@ public class ReplaySerializer
                 var curr = f.Structures[j];
                 var prev = lastStructureFrame[j];
 
-                long headerPos = entriesBw.BaseStream.Position;
+                long headerPos = bw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.StructureState);
-                entriesBw.Write(j);
+                bw.Write((byte)ChunkType.StructureState);
+                bw.Write(j);
 
-                long sizePos = entriesBw.BaseStream.Position;
-                entriesBw.Write(0);
+                long sizePos = bw.BaseStream.Position;
+                bw.Write(0);
 
-                int written = WriteStructureDiff(entriesBw, prev, curr);
+                int written = WriteStructureDiff(bw, prev, curr);
 
                 if (written > 0)
                 {
-                    long end = entriesBw.BaseStream.Position;
+                    long end = bw.BaseStream.Position;
 
-                    entriesBw.BaseStream.Position = sizePos;
-                    entriesBw.Write(written);
-                    entriesBw.BaseStream.Position = end;
+                    bw.BaseStream.Position = sizePos;
+                    bw.Write(written);
+                    bw.BaseStream.Position = end;
 
                     entryCount++;
                 }
                 else
                 {
-                    entriesBw.BaseStream.Position = headerPos;
+                    bw.BaseStream.Position = headerPos;
                 }
 
                 lastStructureFrame[j] = curr;
@@ -439,29 +461,29 @@ public class ReplaySerializer
                 var curr = f.Players[j];
                 var prev = lastPlayerFrame[j];
 
-                long headerPos = entriesBw.BaseStream.Position;
+                long headerPos = bw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.PlayerState);
-                entriesBw.Write(j);
+                bw.Write((byte)ChunkType.PlayerState);
+                bw.Write(j);
 
-                long sizePos = entriesBw.BaseStream.Position;
-                entriesBw.Write(0);
+                long sizePos = bw.BaseStream.Position;
+                bw.Write(0);
 
-                int written = WritePlayerDiff(entriesBw, prev, curr);
+                int written = WritePlayerDiff(bw, prev, curr);
 
                 if (written > 0)
                 {
-                    long end = entriesBw.BaseStream.Position;
+                    long end = bw.BaseStream.Position;
 
-                    entriesBw.BaseStream.Position = sizePos;
-                    entriesBw.Write(written);
-                    entriesBw.BaseStream.Position = end;
+                    bw.BaseStream.Position = sizePos;
+                    bw.Write(written);
+                    bw.BaseStream.Position = end;
 
                     entryCount++;
                 }
                 else
                 {
-                    entriesBw.BaseStream.Position = headerPos;
+                    bw.BaseStream.Position = headerPos;
                 }
 
                 lastPlayerFrame[j] = curr;
@@ -477,29 +499,29 @@ public class ReplaySerializer
                 var curr = f.Pedestals[j];
                 var prev = lastPedestalFrame[j];
 
-                long headerPos = entriesBw.BaseStream.Position;
+                long headerPos = bw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.PedestalState);
-                entriesBw.Write(j);
+                bw.Write((byte)ChunkType.PedestalState);
+                bw.Write(j);
 
-                long sizePos = entriesBw.BaseStream.Position;
-                entriesBw.Write(0);
+                long sizePos = bw.BaseStream.Position;
+                bw.Write(0);
 
-                int written = WritePedestalDiff(entriesBw, prev, curr);
+                int written = WritePedestalDiff(bw, prev, curr);
 
                 if (written > 0)
                 {
-                    long end = entriesBw.BaseStream.Position;
+                    long end = bw.BaseStream.Position;
 
-                    entriesBw.BaseStream.Position = sizePos;
-                    entriesBw.Write(written);
-                    entriesBw.BaseStream.Position = end;
+                    bw.BaseStream.Position = sizePos;
+                    bw.Write(written);
+                    bw.BaseStream.Position = end;
 
                     entryCount++;
                 }
                 else
                 {
-                    entriesBw.BaseStream.Position = headerPos;
+                    bw.BaseStream.Position = headerPos;
                 }
 
                 lastPedestalFrame[j] = curr;
@@ -515,29 +537,29 @@ public class ReplaySerializer
                 var curr = f.SceneProps[j];
                 var prev = lastScenePropFrame[j];
 
-                long headerPos = entriesBw.BaseStream.Position;
+                long headerPos = bw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.ScenePropState);
-                entriesBw.Write(j);
+                bw.Write((byte)ChunkType.ScenePropState);
+                bw.Write(j);
 
-                long sizePos = entriesBw.BaseStream.Position;
-                entriesBw.Write(0);
+                long sizePos = bw.BaseStream.Position;
+                bw.Write(0);
 
-                int written = WriteScenePropDiff(entriesBw, prev, curr);
+                int written = WriteScenePropDiff(bw, prev, curr);
 
                 if (written > 0)
                 {
-                    long end = entriesBw.BaseStream.Position;
+                    long end = bw.BaseStream.Position;
 
-                    entriesBw.BaseStream.Position = sizePos;
-                    entriesBw.Write(written);
-                    entriesBw.BaseStream.Position = end;
+                    bw.BaseStream.Position = sizePos;
+                    bw.Write(written);
+                    bw.BaseStream.Position = end;
 
                     entryCount++;
                 }
                 else
                 {
-                    entriesBw.BaseStream.Position = headerPos;
+                    bw.BaseStream.Position = headerPos;
                 }
 
                 lastScenePropFrame[j] = curr;
@@ -547,29 +569,29 @@ public class ReplaySerializer
 
             for (int j = 0; j < f.Events.Length; j++)
             {
-                long headerPos = entriesBw.BaseStream.Position;
+                long headerPos = bw.BaseStream.Position;
 
-                entriesBw.Write((byte)ChunkType.Event);
-                entriesBw.Write(j);
+                bw.Write((byte)ChunkType.Event);
+                bw.Write(j);
 
-                long sizePos = entriesBw.BaseStream.Position;
-                entriesBw.Write(0);
+                long sizePos = bw.BaseStream.Position;
+                bw.Write(0);
 
-                int written = WriteEvent(entriesBw, f.Events[j]);
+                int written = WriteEvent(bw, f.Events[j]);
 
                 if (written > 0)
                 {
-                    long end = entriesBw.BaseStream.Position;
+                    long end = bw.BaseStream.Position;
 
-                    entriesBw.BaseStream.Position = sizePos;
-                    entriesBw.Write(written);
-                    entriesBw.BaseStream.Position = end;
+                    bw.BaseStream.Position = sizePos;
+                    bw.Write(written);
+                    bw.BaseStream.Position = end;
 
                     entryCount++;
                 }
                 else
                 {
-                    entriesBw.BaseStream.Position = headerPos;
+                    bw.BaseStream.Position = headerPos;
                 }
             }
 
@@ -581,7 +603,7 @@ public class ReplaySerializer
                     continue;
 
                 var writer = new ReplayAPI.FrameExtensionWriter(
-                    entriesBw,
+                    bw,
                     ext.FrameExtensionId,
                     () => entryCount++
                 );
@@ -591,21 +613,17 @@ public class ReplaySerializer
 
             // ------------
 
-            frameBw.Write(entryCount);
-            frameBw.Write(entriesMs.ToArray());
+            long frameEnd = bw.BaseStream.Position;
 
-            byte[] frameData = frameMs.ToArray();
+            int frameSize = checked((int)(frameEnd - frameStart));
+            
+            bw.BaseStream.Position = frameSizePos;
+            bw.Write(frameSize);
 
-            bw.Write(frameData.Length);
-            bw.Write(frameData);
+            bw.BaseStream.Position = entryCountPos;
+            bw.Write(entryCount);
 
-            int percent = (int)((i + 1) * 100.0 / total);
-
-            if (percent % 10 == 0 && total > 1000 && percent != lastLoggedPercent)
-            {
-                lastLoggedPercent = percent;
-                Main.instance.LoggerInstance.Msg($"Serializing replay... {percent}%");
-            }
+            bw.BaseStream.Position = frameEnd;
         }
 
         return ms.ToArray();

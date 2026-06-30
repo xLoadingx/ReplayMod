@@ -2,14 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using Il2CppRUMBLE.Managers;
 using Il2CppTMPro;
 using MelonLoader;
 using MelonLoader.Utils;
 using Newtonsoft.Json;
 using ReplayMod.Replay.Files;
 using ReplayMod.Replay.Serialization;
-using RumbleModdingAPI;
 using RumbleModdingAPI.RMAPI;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -17,6 +15,7 @@ using Random = UnityEngine.Random;
 using static UnityEngine.Mathf;
 using AudioManager = Il2CppRUMBLE.Managers.AudioManager;
 using Main = ReplayMod.Core.Main;
+using Object = UnityEngine.Object;
 
 namespace ReplayMod.Replay.UI;
 
@@ -30,7 +29,7 @@ public static class ReplayCrystals
     
     public static VisualEffect crystalizeVFX;
 
-    public static (string path, Color32 color) lastReplayColor = new();
+    public static (string path, Color32 color) lastReplayColor;
     
     public static void HandleCrystals()
     {
@@ -168,7 +167,7 @@ public static class ReplayCrystals
         if (crystalParent == null)
             crystalParent = new GameObject("Crystals");
         
-        Crystal crystal = GameObject.Instantiate(crystalPrefab, crystalParent.transform).AddComponent<Crystal>();
+        Crystal crystal = Object.Instantiate(crystalPrefab, crystalParent.transform).AddComponent<Crystal>();
             
         var name = Path.GetFileNameWithoutExtension(path).StartsWith("Replay") ? header.Title : Path.GetFileNameWithoutExtension(path);
         
@@ -215,7 +214,7 @@ public static class ReplayCrystals
         if (crystalParent == null)
             crystalParent = new GameObject("Crystals");
         
-        Crystal crystal = GameObject.Instantiate(crystalPrefab, crystalParent.transform).AddComponent<Crystal>();
+        Crystal crystal = Object.Instantiate(crystalPrefab, crystalParent.transform).AddComponent<Crystal>();
         crystal.hasLeftTable = true;
         crystal.gameObject.SetActive(true);
 
@@ -304,7 +303,7 @@ public static class ReplayCrystals
                     AudioManager.instance.Play(ReplayCache.SFX["Call_Measurement_Failure"], crystal.transform.position);
                 
                 Crystals.Remove(crystal);
-                GameObject.Destroy(crystal.gameObject);
+                Object.Destroy(crystal.gameObject);
                 SaveCrystals();
             }
         );
@@ -417,7 +416,7 @@ public static class ReplayCrystals
         yield return new WaitForSeconds(1f);
 
         Crystals.Remove(crystal);
-        GameObject.Destroy(crystal);
+        Object.Destroy(crystal);
         SaveCrystals();
 
         File.Delete(replayPath);
@@ -586,8 +585,7 @@ public static class ReplayCrystals
             if (rend == null)
                 rend = GetComponent<Renderer>();
 
-            if (mpb == null)
-                mpb = new MaterialPropertyBlock();
+            mpb ??= new MaterialPropertyBlock();
 
             ApplyBlockToRenderer(rend, baseColor);
 
