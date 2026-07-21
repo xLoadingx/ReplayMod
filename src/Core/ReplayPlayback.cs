@@ -1553,6 +1553,8 @@ public class ReplayPlayback
             ReplayPlaybackControls.playbackSpeedText.text = label;
             ReplayPlaybackControls.playbackSpeedText.ForceMeshUpdate();
         }
+
+        ReplayAPI.ReplaySpeedChangedInternal(newSpeed);
     }
 
     public void AddPlaybackSpeed(float delta, float minSpeed = -8f, float maxSpeed = 8f)

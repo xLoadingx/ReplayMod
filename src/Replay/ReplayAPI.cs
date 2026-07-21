@@ -67,6 +67,11 @@ public static class ReplayAPI
     public static event Action<float> onReplaySeeked;
     
     /// <summary>
+    /// Invoked when the playback speed changes.
+    /// </summary>
+    public static event Action<float> onSpeedChanged;
+    
+    /// <summary>
     /// Invoked when playback is paused or resumed, along with the new toggle state.
     /// </summary>
     public static event Action<bool> onReplayPauseChanged;
@@ -133,7 +138,7 @@ public static class ReplayAPI
     internal static void ReplayTimeChangedInternal(float time) => InvokeSafe(onReplayTimeChanged, time);
     internal static void ReplaySeekedInternal(float time) => InvokeSafe(onReplaySeeked, time);
     internal static void ReplayPauseChangedInternal(bool paused) => InvokeSafe(onReplayPauseChanged, paused);
-
+    internal static void ReplaySpeedChangedInternal(float time) => InvokeSafe(onSpeedChanged, time);
     internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => InvokeSafe(OnPlaybackFrame, frame, nextFrame);
     internal static void OnRecordFrameInternal(Frame frame, bool isBuffer) => InvokeSafe(OnRecordFrame, frame, isBuffer);
 
