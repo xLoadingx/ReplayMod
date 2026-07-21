@@ -60,6 +60,11 @@ public static class ReplayAPI
     /// Invoked when the playback time changes (seek or progression).
     /// </summary>
     public static event Action<float> onReplayTimeChanged;
+
+    /// <summary>
+    /// Invoked when the playback time changes (seek only).
+    /// </summary>
+    public static event Action<float> onReplaySeeked;
     
     /// <summary>
     /// Invoked when playback is paused or resumed, along with the new toggle state.
@@ -126,6 +131,7 @@ public static class ReplayAPI
     internal static void RecordingStartedInternal() => InvokeSafe(onRecordingStarted);
     internal static void RecordingStoppedInternal() => InvokeSafe(onRecordingStopped);
     internal static void ReplayTimeChangedInternal(float time) => InvokeSafe(onReplayTimeChanged, time);
+    internal static void ReplaySeekedInternal(float time) => InvokeSafe(onReplaySeeked, time);
     internal static void ReplayPauseChangedInternal(bool paused) => InvokeSafe(onReplayPauseChanged, paused);
 
     internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => InvokeSafe(OnPlaybackFrame, frame, nextFrame);
