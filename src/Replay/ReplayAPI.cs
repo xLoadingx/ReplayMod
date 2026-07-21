@@ -103,6 +103,11 @@ public static class ReplayAPI
     /// </summary>
     public static event Action<ReplaySerializer.ReplayHeader, string> onReplayRenamed;
 
+    /// <summary>
+    /// Invoked as a clone is spawned or reset.
+    /// </summary>
+    public static event Action<ReplayPlayback.Clone> onCloneSpawned;
+
     private static void InvokeSafe(Delegate action, params object[] args)
     {
         if (action == null)
@@ -145,6 +150,8 @@ public static class ReplayAPI
     internal static void ReplaySavedInternal(ReplayInfo info, bool isBuffer, string path) => InvokeSafe(onReplaySaved, info, isBuffer, path);
     internal static void ReplayDeletedInternal(string path) => InvokeSafe(onReplayDeleted, path);
     internal static void ReplayRenamedInternal(ReplaySerializer.ReplayHeader header, string newPath) => InvokeSafe(onReplayRenamed, header, newPath);
+
+    internal static void CloneSpawnedInternal(ReplayPlayback.Clone clone) => InvokeSafe(onCloneSpawned, clone);
 
     /// <summary>
     /// Gets whether a recording is currently active.

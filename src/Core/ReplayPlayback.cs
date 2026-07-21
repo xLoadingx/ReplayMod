@@ -606,6 +606,8 @@ public class ReplayPlayback
             temp.gameObject.SetActive(true);
             PlaybackPlayers[i] = temp;
             temp.Controller.transform.SetParent(replayPlayers.transform);
+
+            ReplayAPI.CloneSpawnedInternal(temp);
         }
     
         done?.Invoke();
