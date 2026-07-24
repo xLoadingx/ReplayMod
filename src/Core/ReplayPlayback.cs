@@ -1196,7 +1196,7 @@ public class ReplayPlayback
                     state.visualData = pb.visualData;
                     
                     playbackPlayer.Controller.assignedPlayer.Data.VisualData = newVisualData;
-                    playbackPlayer.Controller.Initialize(playbackPlayer.Controller.assignedPlayer);
+                    playbackPlayer.Controller.PlayerVisuals.Initialize(playbackPlayer.Controller);
 
                     playbackPlayer.Controller.transform.GetChild(9).gameObject.SetActive(false);
                 }
