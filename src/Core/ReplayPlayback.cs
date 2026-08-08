@@ -722,7 +722,7 @@ public class ReplayPlayback
 
         newPlayer.Controller.PlayerNameTag.gameObject.SetActive(Main.instance.ToggleNameplate.Value);
         newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(Main.instance.ToggleHealthBar.Value);
-        newPlayer.Controller.gameObject.GetComponentInChildren<PlayerUIBar>().InitializeMaterials(newPlayer.Controller, PlayerUIBar.UIBarMode.Health);
+        // newPlayer.Controller.gameObject.GetComponentInChildren<PlayerUIBar>().InitializeMaterials(newPlayer.Controller, PlayerUIBar.UIBarMode.Health);
 
         clone.VRRig = Overall;
         clone.LeftHand = LHand;
@@ -1324,7 +1324,7 @@ public class ReplayPlayback
             }
         }
 
-        ReplayAPI.OnPlaybackFrameInternal(a, b);
+        ReplayAPI.OnPlaybackFrameInternal(a, b, this);
 
         foreach (var ext in ReplayAPI.Extensions)
         {

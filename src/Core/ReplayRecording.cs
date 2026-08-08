@@ -114,7 +114,7 @@ public class ReplayRecording
                     ext.OnRecordFrame(cloned, false);
                 }
                 
-                ReplayAPI.OnRecordFrameInternal(cloned, false);
+                ReplayAPI.OnRecordFrameInternal(cloned, false, this);
                 Frames.Add(cloned);
             }
             
@@ -127,7 +127,7 @@ public class ReplayRecording
                     ext.OnRecordFrame(cloned, true);
                 }
                 
-                ReplayAPI.OnRecordFrameInternal(cloned, true);
+                ReplayAPI.OnRecordFrameInternal(cloned, true, this);
                 replayBuffer.Enqueue(cloned);
 
                 float cutoffTime = frame.Time - Main.instance.ReplayBufferDuration.Value;

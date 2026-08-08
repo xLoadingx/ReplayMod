@@ -55,7 +55,7 @@ public static class BuildInfo
 {
     public const string Name = "ReplayMod";
     public const string Author = "ERROR";
-    public const string Version = "1.2.2";
+    public const string Version = "1.2.3";
     public const string FormatVersion = "1.1.0";
 }
 
@@ -96,8 +96,8 @@ public class Main : MelonMod
 
     public const float errorsArmspan = 1.2744f;
     
-    private const string USER_DATA = "UserData/ReplayMod/Settings/";
-    private const string CONFIG_FILE = "config.cfg";
+    public const string USER_DATA = "UserData/ReplayMod/Settings/";
+    public const string CONFIG_FILE = "config.cfg";
 
     // Recording
     public MelonPreferences_Entry<int> TargetRecordingFPS;
@@ -279,19 +279,6 @@ public class Main : MelonMod
 
         EnableHaptics = controlsFolder.CreateEntry("Enable_Haptics", true, "Enable Haptics",
             "Plays controller haptics when actions such as saving a replay or adding a marker are performed.");
-
-        if (ReplayAPI.Extensions.Any())
-        {
-            foreach (var ext in ReplayAPI.Extensions)
-            {
-                var extFolder = MelonPreferences.CreateCategory($"Extension_{ext.Id}", $"{ext.Id}");
-                extFolder.SetFilePath(configPath);
-
-                var toggle = extFolder.CreateEntry("Enabled", true, $"Toggle {ext.Id}", "Toggles the extension on/off");
-
-                ext.Enabled = toggle;
-            }
-        }
         
         var otherFolder = MelonPreferences.CreateCategory("Other");
         otherFolder.SetFilePath(configPath);

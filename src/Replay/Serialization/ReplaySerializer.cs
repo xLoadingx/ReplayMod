@@ -822,11 +822,15 @@ public class ReplaySerializer
                     {
                         int extensionId = index;
                         int subIndex = br.ReadInt32();
-                        int len = br.ReadInt32();
-
-                        long end = br.BaseStream.Position + len;
 
                         var ext = ReplayAPI.Extensions.FirstOrDefault(ex => ex.FrameExtensionId == extensionId);
+
+                        long lengthPosition = br.BaseStream.Position;
+                        int len = br.ReadInt32();
+                        long end = br.BaseStream.Position + len;
+
+                        br.BaseStream.Position = lengthPosition;
+                        
                         if (ext != null && ext.Enabled.Value)
                             ext.OnReadFrame(br, frame, subIndex);
 

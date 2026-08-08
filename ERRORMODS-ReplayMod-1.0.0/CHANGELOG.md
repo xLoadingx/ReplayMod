@@ -1,3 +1,6 @@
+# 1.2.3
+I forgot to change the dll ugggghhhhh
+
 # 1.2.2
 Hey so like apparently the whole mod was broken for the past two months so:
 - Made replay clones not lag the game anymore and allowed replays to actually play correctly

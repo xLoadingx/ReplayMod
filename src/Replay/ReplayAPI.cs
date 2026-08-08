@@ -79,13 +79,13 @@ public static class ReplayAPI
     /// <summary>
     /// Invoked for every frame during playback.
     /// </summary>
-    public static event Action<Frame, Frame> OnPlaybackFrame;
+    public static event Action<Frame, Frame, ReplayPlayback> OnPlaybackFrame;
     
     /// <summary>
     /// Invoked for every frame while recording or buffering.
     /// The boolean indicates whether the frame belongs to the buffer.
     /// </summary>
-    public static event Action<Frame, bool> OnRecordFrame;
+    public static event Action<Frame, bool, ReplayRecording> OnRecordFrame;
 
     
     /// <summary>
@@ -146,6 +146,9 @@ public static class ReplayAPI
     internal static void ReplaySpeedChangedInternal(float time) => InvokeSafe(onSpeedChanged, time);
     internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => InvokeSafe(OnPlaybackFrame, frame, nextFrame);
     internal static void OnRecordFrameInternal(Frame frame, bool isBuffer) => InvokeSafe(OnRecordFrame, frame, isBuffer);
+
+    internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame, ReplayPlayback playback) => InvokeSafe(OnPlaybackFrame, frame, nextFrame, playback);
+    internal static void OnRecordFrameInternal(Frame frame, bool isBuffer, ReplayRecording recorder) => InvokeSafe(OnRecordFrame, frame, isBuffer, recorder);
 
     internal static void ReplaySavedInternal(ReplayInfo info, bool isBuffer, string path) => InvokeSafe(onReplaySaved, info, isBuffer, path);
     internal static void ReplayDeletedInternal(string path) => InvokeSafe(onReplayDeleted, path);
@@ -413,6 +416,14 @@ public static class ReplayAPI
         }
         
         _extensions.Add(extension);
+        
+        var extFolder = MelonPreferences.CreateCategory($"Extension_{extension.Id}", $"{extension.Id}");
+        extFolder.SetFilePath(Path.Combine(Main.USER_DATA, Main.CONFIG_FILE));
+
+        var toggle = extFolder.CreateEntry("Enabled", true, $"Toggle {extension.Id}", "Toggles the extension on/off");
+
+        extension.Enabled = toggle;
+        
         Main.instance.LoggerInstance.Msg($"Extension '{extension.Id}' created");
 
         return extension;
