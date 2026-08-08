@@ -106,7 +106,7 @@ public class ReplayPlayback
 
         if (elapsedPlaybackTime >= currentReplay.Frames[^1].Time)
         {
-            SetPlaybackTime(currentReplay.Frames[^1].Time);
+            UpdatePlayback(currentReplay.Frames[^1].Time);
             
             if (Main.instance.StopReplayWhenDone.Value)
                 StopReplay();
@@ -116,7 +116,7 @@ public class ReplayPlayback
         
         if (elapsedPlaybackTime <= 0f)
         {
-            SetPlaybackTime(0f);
+            UpdatePlayback(0f);
 
             if (Main.instance.StopReplayWhenDone.Value)
                 StopReplay();
@@ -124,7 +124,7 @@ public class ReplayPlayback
             return;
         }
         
-        SetPlaybackTime(elapsedPlaybackTime);
+        UpdatePlayback(elapsedPlaybackTime);
 
         ReplayPlaybackControls.timeline?.GetComponent<MeshRenderer>()?.material?.SetFloat("_BP_Current", elapsedPlaybackTime * 1000f);
 
@@ -606,6 +606,8 @@ public class ReplayPlayback
             temp.gameObject.SetActive(true);
             PlaybackPlayers[i] = temp;
             temp.Controller.transform.SetParent(replayPlayers.transform);
+
+            ReplayAPI.CloneSpawnedInternal(temp);
         }
     
         done?.Invoke();
@@ -1553,6 +1555,8 @@ public class ReplayPlayback
             ReplayPlaybackControls.playbackSpeedText.text = label;
             ReplayPlaybackControls.playbackSpeedText.ForceMeshUpdate();
         }
+
+        ReplayAPI.ReplaySpeedChangedInternal(newSpeed);
     }
 
     public void AddPlaybackSpeed(float delta, float minSpeed = -8f, float maxSpeed = 8f)
@@ -1579,6 +1583,11 @@ public class ReplayPlayback
     }
     
     public void SetPlaybackTime(float time)
+    {
+        UpdatePlayback(time);
+    }
+
+    public void UpdatePlayback(float time)
     {
         float oldTime = elapsedPlaybackTime;
         

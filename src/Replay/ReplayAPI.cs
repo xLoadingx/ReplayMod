@@ -60,6 +60,16 @@ public static class ReplayAPI
     /// Invoked when the playback time changes (seek or progression).
     /// </summary>
     public static event Action<float> onReplayTimeChanged;
+
+    /// <summary>
+    /// Invoked when the playback time changes (seek only).
+    /// </summary>
+    public static event Action<float> onReplaySeeked;
+    
+    /// <summary>
+    /// Invoked when the playback speed changes.
+    /// </summary>
+    public static event Action<float> onSpeedChanged;
     
     /// <summary>
     /// Invoked when playback is paused or resumed, along with the new toggle state.
@@ -92,6 +102,11 @@ public static class ReplayAPI
     /// Invoked after a replay is renamed, along with its new path.
     /// </summary>
     public static event Action<ReplaySerializer.ReplayHeader, string> onReplayRenamed;
+
+    /// <summary>
+    /// Invoked as a clone is spawned or reset.
+    /// </summary>
+    public static event Action<ReplayPlayback.Clone> onCloneSpawned;
 
     private static void InvokeSafe(Delegate action, params object[] args)
     {
@@ -126,14 +141,17 @@ public static class ReplayAPI
     internal static void RecordingStartedInternal() => InvokeSafe(onRecordingStarted);
     internal static void RecordingStoppedInternal() => InvokeSafe(onRecordingStopped);
     internal static void ReplayTimeChangedInternal(float time) => InvokeSafe(onReplayTimeChanged, time);
+    internal static void ReplaySeekedInternal(float time) => InvokeSafe(onReplaySeeked, time);
     internal static void ReplayPauseChangedInternal(bool paused) => InvokeSafe(onReplayPauseChanged, paused);
-
+    internal static void ReplaySpeedChangedInternal(float time) => InvokeSafe(onSpeedChanged, time);
     internal static void OnPlaybackFrameInternal(Frame frame, Frame nextFrame) => InvokeSafe(OnPlaybackFrame, frame, nextFrame);
     internal static void OnRecordFrameInternal(Frame frame, bool isBuffer) => InvokeSafe(OnRecordFrame, frame, isBuffer);
 
     internal static void ReplaySavedInternal(ReplayInfo info, bool isBuffer, string path) => InvokeSafe(onReplaySaved, info, isBuffer, path);
     internal static void ReplayDeletedInternal(string path) => InvokeSafe(onReplayDeleted, path);
     internal static void ReplayRenamedInternal(ReplaySerializer.ReplayHeader header, string newPath) => InvokeSafe(onReplayRenamed, header, newPath);
+
+    internal static void CloneSpawnedInternal(ReplayPlayback.Clone clone) => InvokeSafe(onCloneSpawned, clone);
 
     /// <summary>
     /// Gets whether a recording is currently active.
