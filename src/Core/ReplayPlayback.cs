@@ -53,6 +53,7 @@ public class ReplayPlayback
     
     // Replay Control
     public ReplayInfo currentReplay;
+    public string currentReplayPath;
     public bool isPlaying;
     public float playbackSpeed = 1f;
     
@@ -147,6 +148,7 @@ public class ReplayPlayback
         }
         
         currentReplay = ReplaySerializer.LoadReplay(path);
+        currentReplayPath = path;
 
         SetPlaybackSpeed(1f);
         
@@ -475,6 +477,9 @@ public class ReplayPlayback
         
         Main.LocalPlayer.Controller.PlayerNameTag.gameObject.SetActive(false);
 
+        currentReplay = null;
+        currentReplayPath = null;
+
         ReplayAPI.ReplayEndedInternal(currentReplay);
     }
     
@@ -720,8 +725,8 @@ public class ReplayPlayback
 
         var clone = newPlayer.Controller.gameObject.AddComponent<Clone>();
 
-        newPlayer.Controller.PlayerNameTag.gameObject.SetActive(Main.instance.ToggleNameplate.Value);
-        newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(Main.instance.ToggleHealthBar.Value);
+        // newPlayer.Controller.PlayerNameTag.gameObject.SetActive(Main.instance.ToggleNameplate.Value);
+        // newPlayer.Controller.PlayerHealth.transform.GetChild(1).gameObject.SetActive(Main.instance.ToggleHealthBar.Value);
         // newPlayer.Controller.gameObject.GetComponentInChildren<PlayerUIBar>().InitializeMaterials(newPlayer.Controller, PlayerUIBar.UIBarMode.Health);
 
         clone.VRRig = Overall;

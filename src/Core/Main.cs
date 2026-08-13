@@ -1616,7 +1616,7 @@ public class Main : MelonMod
         favoriteButton.transform.localPosition = new Vector3(-0.2489f, -0.0529f, -0.028f);
         favoriteButton.transform.localRotation = Quaternion.Euler(0, 270, 90);
         favoriteButton.transform.localScale = Vector3.one * 0.35f;
-        favoriteButton.transform.GetChild(2).gameObject.SetActive(false);
+        favoriteButton.transform.GetChild(1).gameObject.SetActive(false);
 
         var favoriteButtonComp = favoriteButton.transform.GetChild(0).GetComponent<InteractionButton>();
         favoriteButtonComp.enabled = true;
