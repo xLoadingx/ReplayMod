@@ -12,6 +12,7 @@ using Il2CppRUMBLE.Environment;
 using Il2CppRUMBLE.Input;
 using Il2CppRUMBLE.Managers;
 using Il2CppRUMBLE.MoveSystem;
+using Il2CppRUMBLE.Networking.MatchFlow;
 using Il2CppRUMBLE.Players;
 using Il2CppRUMBLE.Players.Subsystems;
 using Il2CppRUMBLE.Pools;
@@ -443,6 +444,15 @@ public class Patches
                 return true;
 
             return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(MatchHandler), nameof(MatchHandler.ForceQuit))]
+    public class Patch_MatchHandler_ForceQuit
+    {
+        static bool Prefix(MatchHandler __instance, SpawnPointHandler.SpawnPointType spawnPointType, bool followParty)
+        {
+            return !ReplayPlayback.isReplayScene;
         }
     }
   }

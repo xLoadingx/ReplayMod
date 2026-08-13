@@ -1,3 +1,17 @@
+# 1.2.4
+- Updated for RUMBLE version 0.5.1.1
+- Added reference to playback / recording instances with OnPlaybackFrame and OnRecordFrame
+- Fixed issue with extensions not being read back properly
+- Added current playback path to ReplayPlayback instances.
+- Temporarily disabled setting init for players (nametag and health) because of issues.
+- Separated the difference between recorded buffer frames and recorded buffer frames in the API
+
+Thanks to Syborg for the below contributions:
+- Only re-init the PlayerVisuals to avoid errors with physics children
+- Added onCloneSpawned API callback
+- Added onSpeedChanged API callback
+- Added onReplaySeeked API callback
+
 # 1.2.3
 I forgot to change the dll ugggghhhhh
 

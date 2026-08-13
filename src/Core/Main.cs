@@ -55,7 +55,7 @@ public static class BuildInfo
 {
     public const string Name = "ReplayMod";
     public const string Author = "ERROR";
-    public const string Version = "1.2.3";
+    public const string Version = "1.2.4";
     public const string FormatVersion = "1.1.0";
 }
 
@@ -1982,19 +1982,6 @@ public class Main : MelonMod
                         
                         if (isCustomMap)
                             LoadCustomMap(targetScene, isRawMapData, replayCustomMap);
-                        
-                        var matchHandler = currentScene switch
-                        {
-                            "Map1" => GameObjects.Map1.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
-                            "Map0" => GameObjects.Map0.Logic.MatchHandler.GetGameObject().GetComponent<MatchHandler>(),
-                            _ => null
-                        };
-
-                        if (matchHandler != null)
-                        {
-                            matchHandler.CurrentMatchPhase = MatchHandler.MatchPhase.MatchStart;
-                            matchHandler.FadeIn();
-                        }
                 
                         switch (currentScene)
                         {
