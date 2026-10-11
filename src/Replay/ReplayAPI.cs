@@ -171,7 +171,7 @@ public static class ReplayAPI
     /// <summary>
     /// Gets whether playback is currently active.
     /// </summary>
-    public static bool IsPlaying => Main.Playback.isPlaying;
+    public static bool IsReplayActive => Main.Playback.isReplayActive;
     
     /// <summary>
     /// Gets whether playback is currently paused.

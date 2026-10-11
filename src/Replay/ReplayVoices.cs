@@ -226,6 +226,7 @@ public static class ReplayVoices
             SampleRate = sampleRate;
             Channels = channels;
 
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
             _fileStream = File.Create(path);
             
             var encoder = OpusCodecFactory.CreateEncoder(sampleRate, channels, OpusApplication.OPUS_APPLICATION_VOIP);

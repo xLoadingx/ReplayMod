@@ -71,9 +71,9 @@ public class ReplaySettings : MonoBehaviour
         // vfx.enabled = true;
         // vfx.Play();
         
-        povButton.SetActive(Main.Playback.isPlaying);
-        hideLocalPlayerToggle.SetActive(Main.Playback.isPlaying);
-        openControlsButton.SetActive(Main.Playback.isPlaying);
+        povButton.SetActive(Main.Playback.isReplayActive);
+        hideLocalPlayerToggle.SetActive(Main.Playback.isReplayActive);
+        openControlsButton.SetActive(Main.Playback.isReplayActive);
         
         currentPath = path;
         currentHeader = ReplayArchive.GetManifest(path);
@@ -394,7 +394,7 @@ public class ReplaySettings : MonoBehaviour
         
             GetComponentInParent<MeshRenderer>().material?.SetFloat("_BP_Current", time * 1000f);
         
-            if (Main.Playback.isPlaying)
+            if (Main.Playback.isReplayActive)
                 Main.Playback.SetPlaybackTime(time);
         }
     
