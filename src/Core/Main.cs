@@ -303,7 +303,7 @@ public class Main : MelonMod
         
         ToggleNameplate.OnEntryValueChanged.Subscribe((_, value) =>
         {
-            if (!Playback?.isPlaying ?? true)
+            if (!Playback?.isReplayActive ?? true)
                 return;
 
             foreach (var player in Playback.PlaybackPlayers)
@@ -312,7 +312,7 @@ public class Main : MelonMod
 
         ToggleHealthBar.OnEntryValueChanged.Subscribe((_, value) =>
         {
-            if (!Playback?.isPlaying ?? true)
+            if (!Playback?.isReplayActive ?? true)
                 return;
 
             foreach (var player in Playback.PlaybackPlayers)
@@ -321,7 +321,7 @@ public class Main : MelonMod
 
         ToggleRockCam.OnEntryValueChanged.Subscribe((_, value) =>
         {
-            if (!Playback?.isPlaying ?? true)
+            if (!Playback?.isReplayActive ?? true)
                 return;
 
             foreach (var player in Playback.PlaybackPlayers)
@@ -347,7 +347,7 @@ public class Main : MelonMod
         
         ToggleVoices.OnEntryValueChanged.Subscribe((_, value) =>
         {
-            if (!Playback.isPlaying)
+            if (!Playback.isReplayActive)
                 return;
 
             if (value) return;
@@ -422,12 +422,12 @@ public class Main : MelonMod
 
         DebugLog($"Scene loaded: {sceneName}");
         DebugLog($"Recording active before scene load: {Recording.isRecording}");
-        DebugLog($"Playback active before scene load: {Playback.isPlaying}");
+        DebugLog($"Playback active before scene load: {Playback.isReplayActive}");
         
         if (Recording.isRecording)
             Recording.StopRecording();
 
-        if (Playback.isPlaying)
+        if (Playback.isReplayActive)
             Playback.StopReplay();
 
         if (sceneName == "Gym")
@@ -1898,13 +1898,13 @@ public class Main : MelonMod
             return;
         }
         
-        if (Playback.isPlaying)
+        if (Playback.isReplayActive)
             Playback.StopReplay();
 
         string targetScene = ReplayFiles.currentHeader.Scene;
         bool switchingScene = targetScene != currentScene;
 
-        bool isCustomMap = targetScene is "Map0" or "Map1" && !string.IsNullOrWhiteSpace(ReplayFiles.currentHeader.CustomMap);
+        bool isCustomMap = targetScene is "Park" or "Gym" or "Map0" or "Map1" && !string.IsNullOrWhiteSpace(ReplayFiles.currentHeader.CustomMap);
         bool isRawMapData = !string.IsNullOrWhiteSpace(ReplayFiles.currentHeader.CustomMap) && ReplayFiles.currentHeader.CustomMap.Split('|').Length > 15;
         
         DebugLog(
@@ -2270,7 +2270,7 @@ public class Main : MelonMod
 
                 if (triggersHeld)
                 {
-                    if (Playback.isPlaying)
+                    if (Playback.isReplayActive)
                     {
                         if (ReplayPlaybackControls.playbackControlsOpen && 
                             Vector3.Distance(ReplayPlaybackControls.playbackControls.transform.position, head.position) < LocalPlayer.Data.PlayerMeasurement.ArmSpan

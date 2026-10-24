@@ -133,7 +133,7 @@ public class Patches
                 Main.Recording.Events.Add(evt);
             }
     
-            if (Main.Playback.isPlaying)
+            if (Main.Playback.isReplayActive)
             {
                 float minDistance = 999999f;
                 
@@ -374,7 +374,7 @@ public class Patches
             if (__instance.parentController == null)
                 return true;
 
-            if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
+            if (!Main.Playback.isReplayActive || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
                 return true;
 
             foreach (var player in Main.Playback.PlaybackPlayers)
@@ -411,7 +411,7 @@ public class Patches
             
             if (__instance.parentController == null) return;
             
-            if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
+            if (!Main.Playback.isReplayActive || !Utilities.IsReplayClone(__instance.parentController) || Main.Playback.PlaybackPlayers == null)
                 return;
 
             ReplayPlayback.Clone playbackPlayer = null;
@@ -444,7 +444,7 @@ public class Patches
             if (!Main.instance.UIInitialized)
                 return true;
             
-            if (!Main.Playback.isPlaying || !Utilities.IsReplayClone(__instance.parentController))
+            if (!Main.Playback.isReplayActive || !Utilities.IsReplayClone(__instance.parentController))
                 return true;
 
             return false;
